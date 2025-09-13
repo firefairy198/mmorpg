@@ -1,0 +1,177 @@
+//DungeonStory.kt
+package org.example.mmorpg
+
+import kotlin.random.Random
+
+// 添加副本剧情事件类
+data class DungeonEvent(
+    val playerName: String,
+    val action: String,
+    val effect: String,
+    val description: String,
+    val successRateChange: Double = 0.0,
+    val extraGold: Int = 0,
+    val extraATK: Int = 0,
+    val extraDEF: Int = 0
+)
+
+// 添加副本剧情生成器
+object DungeonStoryGenerator {
+    // 正面事件及其效果
+    private val positiveEvents = mapOf(
+        "找到了一双丝袜" to { playerName: String, dungeon: Dungeon ->
+            DungeonEvent(playerName, "找到了一双丝袜", "↑",
+                "[❤] $playerName 在角落中找到了一双丝袜，士气大振！",
+                successRateChange = 0.015)
+        },
+        "发现了隐藏的宝箱" to { playerName: String, dungeon: Dungeon ->
+            DungeonEvent(playerName, "发现了隐藏的宝箱", "↑",
+                "[❤] $playerName 发现了隐藏的宝箱，获得了额外的喵币",
+                extraGold = (dungeon.reward * 0.1).toInt())
+        },
+        "施展了治疗法术" to { playerName: String, dungeon: Dungeon ->
+            DungeonEvent(playerName, "施展了治疗法术", "↑",
+                "[✨] $playerName 施展了强大的治疗法术，恢复了队伍状态",
+                successRateChange = 0.003)
+        },
+        "找到了捷径" to { playerName: String, dungeon: Dungeon ->
+            DungeonEvent(playerName, "找到了捷径", "↑",
+                "[✨] $playerName 找到了一条捷径，减少了遭遇的敌人",
+                successRateChange = 0.004)
+        },
+        "激活了神秘BUFF" to { playerName: String, dungeon: Dungeon ->
+            val dungeonLevel = dungeon.id // 副本编号 1-5
+            val squareBonus = dungeonLevel * dungeonLevel // 平方奖励
+            DungeonEvent(playerName, "激活了神秘BUFF", "↑",
+                "[❤] $playerName 激活了神秘BUFF，所有成员大幅变强",
+                extraATK = squareBonus,
+                extraDEF = squareBonus)
+        },
+        "驱散了周围的迷雾" to { playerName: String, dungeon: Dungeon ->
+            DungeonEvent(playerName, "驱散了周围的迷雾", "↑",
+                "[✨] $playerName 驱散了迷雾，视野变得更加清晰",
+                successRateChange = 0.006)
+        },
+        "解锁了古老符文" to { playerName: String, dungeon: Dungeon ->
+            DungeonEvent(playerName, "解锁了古老符文", "↑",
+                "[✨] $playerName 解锁了古老符文，感觉副本难度下降了",
+                successRateChange = 0.005)
+        },
+        "唤醒了守护精灵" to { playerName: String, dungeon: Dungeon ->
+            val dungeonLevel = dungeon.id // 副本编号 1-5
+            DungeonEvent(playerName, "唤醒了守护精灵", "↑",
+                "[❤] $playerName 唤醒了守护精灵，感觉自身变强了一些",
+                extraATK = dungeonLevel,
+                extraDEF = dungeonLevel)
+        },
+        "遇到了魅魔" to { playerName: String, dungeon: Dungeon ->
+            DungeonEvent(playerName, "遇到了魅魔", "↑",
+                "[✨] $playerName 遇到了魅魔，和队友一起超市了ta",
+                successRateChange = 0.008)
+        },
+        "解读了古代文字" to { playerName: String, dungeon: Dungeon ->
+            DungeonEvent(playerName, "解读了古代文字", "↑",
+                "[✨] $playerName 解读了古代文字，获得了战斗技巧",
+                successRateChange = 0.005)
+        }
+    )
+
+    // 负面事件及其效果
+    private val negativeEvents = mapOf(
+        "看到了一个宝箱" to { playerName: String, dungeon: Dungeon ->
+            DungeonEvent(playerName, "看到了一个宝箱", "↓",
+                "[☠] $playerName 看到了一个宝箱，但被它吞了进去",
+                successRateChange = -0.004)
+        },
+        "被史莱姆缠住了" to { playerName: String, dungeon: Dungeon ->
+            DungeonEvent(playerName, "被史莱姆缠住了", "↓",
+                "[☠☠] $playerName 被史莱姆缠住了，行动受限",
+                successRateChange = -0.006)
+        },
+        "发现了古老典籍" to { playerName: String, dungeon: Dungeon ->
+            DungeonEvent(playerName, "发现了古老典籍", "↓",
+                "[☠☠] $playerName 被名为《金**每》的古书吸引住了，浪费了时间",
+                successRateChange = -0.007)
+        },
+        "试图拆卸华丽陷阱" to { playerName: String, dungeon: Dungeon ->
+            DungeonEvent(playerName, "试图拆卸华丽陷阱", "↓",
+                "[☠] $playerName 试图拆卸一个陷阱，随着一声巨响，希望人没事",
+                successRateChange = -0.005)
+        },
+        "向奇怪的神像祈祷" to { playerName: String, dungeon: Dungeon ->
+            DungeonEvent(playerName, "向奇怪的神像祈祷", "↓",
+                "[☠☠☠] $playerName 向一个长满触手的神像祈祷，感觉有什么东西回应了…",
+                successRateChange = -0.008)
+        },
+        "跟魅魔跑了" to { playerName: String, dungeon: Dungeon ->
+            DungeonEvent(playerName, "跟魅魔跑了", "↓",
+                "[☠☠☠] $playerName 被魅魔诱惑，暂时离开了队伍",
+                successRateChange = -0.009)
+        },
+        "开始吟唱爆裂魔法" to { playerName: String, dungeon: Dungeon ->
+            DungeonEvent(playerName, "开始吟唱爆裂魔法", "↓",
+                "[☠☠] ‘比黑色更黑……Explosion!’$playerName 用魔法炸到了空气，然后瘫倒在地。",
+                successRateChange = -0.006)
+        },
+        "开始玩坎公骑冠剑" to { playerName: String, dungeon: Dungeon ->
+            DungeonEvent(playerName, "开始玩坎公骑冠剑", "↓",
+                "[☠] $playerName 忽然想起刀还没出，连忙掏出手机打开了坎公骑",
+                successRateChange = -0.005)
+        },
+        "惊动了守卫" to { playerName: String, dungeon: Dungeon ->
+            DungeonEvent(playerName, "惊动了守卫", "↓",
+                "[☠☠] $playerName 不小心惊动了守卫，增加了战斗难度",
+                successRateChange = -0.007)
+        },
+        "被黑暗气息侵蚀" to { playerName: String, dungeon: Dungeon ->
+            DungeonEvent(playerName, "被黑暗气息侵蚀", "↓",
+                "[☠☠☠] $playerName 被黑暗气息侵蚀，状态下降",
+                successRateChange = -0.008)
+        }
+    )
+
+    // BOSS战事件
+    private val bossEvents = listOf(
+        "召唤了小弟支援",
+        "进入了狂暴状态",
+        "施展了全屏毒雾",
+        "开启了绝对防御",
+        "发动了地震术",
+        "释放了黑暗领域",
+        "使用了精神控制",
+        "召唤了陨石雨",
+        "开启了嗜血"
+    )
+
+    // 生成随机剧情事件
+    fun generateEvents(team: Team, dungeon: Dungeon): List<DungeonEvent> {
+        val events = mutableListOf<DungeonEvent>()
+        val members = team.members.map { it.playerName }
+
+        // 前5个事件
+        repeat(5) {
+            val player = members.random()
+            val isPositive = Random.nextBoolean()
+
+            if (isPositive) {
+                val (action, eventGenerator) = positiveEvents.entries.random()
+                val event = eventGenerator(player, dungeon)
+                events.add(event)
+            } else {
+                val (action, eventGenerator) = negativeEvents.entries.random()
+                val event = eventGenerator(player, dungeon)
+                events.add(event)
+            }
+        }
+
+        // BOSS事件
+        events.add(DungeonEvent(
+            "BOSS",
+            bossEvents.random(),
+            "⚡",
+            "队伍遇到了BOSS，BOSS${bossEvents.random()}……"
+        ))
+
+        return events
+    }
+}
