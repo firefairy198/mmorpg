@@ -755,7 +755,7 @@ object PluginMain : KotlinPlugin(
                         val bonusExtraDEF = totalExtraDEF * bonusMultiplier
 
                         // 平分奖励
-                        val rewardPerPerson = (actualReward + totalExtraGold) / 4
+                        val rewardPerPerson = (actualReward + bonusExtraGold) / 4
 
                         // 发送结果
                         delay(5000)
