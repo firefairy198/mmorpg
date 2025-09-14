@@ -43,7 +43,7 @@ object DungeonStoryGenerator {
             val dungeonLevel = dungeon.id // 副本编号 1-5
             val squareBonus = dungeonLevel * dungeonLevel // 平方奖励
             DungeonEvent(playerName, "激活了神秘BUFF", "↑",
-                "[❤] $playerName 激活了神秘BUFF，所有成员大幅变强",
+                "[❤] $playerName 激活了神秘BUFF，所有成员变大变粗",
                 extraATK = squareBonus,
                 extraDEF = squareBonus)
         },
@@ -60,7 +60,7 @@ object DungeonStoryGenerator {
         "唤醒了守护精灵" to { playerName: String, dungeon: Dungeon ->
             val dungeonLevel = dungeon.id // 副本编号 1-5
             DungeonEvent(playerName, "唤醒了守护精灵", "↑",
-                "[❤] $playerName 唤醒了守护精灵，感觉自身变强了一些",
+                "[❤] $playerName 唤醒了守护精灵，感觉自身和队友变强了一丢丢",
                 extraATK = dungeonLevel,
                 extraDEF = dungeonLevel)
         },
@@ -170,6 +170,56 @@ object DungeonStoryGenerator {
             bossEvents.random(),
             "⚡",
             "队伍遇到了BOSS，BOSS${bossEvents.random()}……"
+        ))
+
+        return events
+    }
+
+    // 在 DungeonStoryGenerator 中添加奖励副本事件
+    private val bonusDungeonEvents = mapOf(
+        "发现了隐藏的传送门" to { playerName: String, dungeon: Dungeon ->
+            DungeonEvent(playerName, "发现了隐藏的传送门", "↑",
+                "[✨] $playerName 发现了一个发光的传送门，似乎是一条近道！",
+                successRateChange = 0.033)
+        },
+        "找到了古代宝库" to { playerName: String, dungeon: Dungeon ->
+            DungeonEvent(playerName, "找到了古代宝库", "↑",
+                "[❤] $playerName 发现了一个装满喵币的古代宝库！",
+                extraGold = (dungeon.reward * 0.15).toInt())
+        },
+        "沐浴在神圣之光中" to { playerName: String, dungeon: Dungeon ->
+            // 根据副本难度计算属性奖励
+            // 基础奖励为5点，每增加40000难度增加1点奖励
+            val baseBonus = 2
+            val difficultyBonus = dungeon.difficulty / 40000
+            val totalBonus = baseBonus + difficultyBonus
+
+            DungeonEvent(playerName, "沐浴在神圣之光中", "↑",
+                "[❤] $playerName 沐浴在神圣之光中，感觉力量增强了！",
+                extraATK = totalBonus,
+                extraDEF = totalBonus)
+        }
+    )
+
+    // 修改 generateEvents 方法，添加奖励副本事件生成
+    fun generateBonusDungeonEvents(team: Team, dungeon: Dungeon): List<DungeonEvent> {
+        val events = mutableListOf<DungeonEvent>()
+        val members = team.members.map { it.playerName }
+
+        // 添加3个特殊事件
+        repeat(3) {
+            val player = members.random()
+            val (action, eventGenerator) = bonusDungeonEvents.entries.random()
+            val event = eventGenerator(player, dungeon)
+            events.add(event)
+        }
+
+        // BOSS事件
+        events.add(DungeonEvent(
+            "BOSS",
+            bossEvents.random(),
+            "⚡",
+            "队伍遇到了奖励副本的守护者，守护者${bossEvents.random()}……"
         ))
 
         return events

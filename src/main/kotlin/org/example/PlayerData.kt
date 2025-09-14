@@ -20,7 +20,9 @@ data class PlayerData(
     var dailyDungeonCount: Int = 0,
     var lastDungeonResetDate: String = "",
     var relic: Relic? = null,
-    var lastFindOpponentTime: Long = 0
+    var lastFindOpponentTime: Long = 0,
+    // 新增兑换码使用记录字段
+    var usedCodes: MutableSet<String> = mutableSetOf() // 存储已使用的兑换码
 )
 
 // 新增宠物数据类

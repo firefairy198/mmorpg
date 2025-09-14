@@ -25,6 +25,13 @@ object PlayerDataManager {
             try {
                 val playerData = json.decodeFromString<PlayerData>(file.readText())
 
+                // 处理 usedCodes 字段的兼容性
+                if (playerData.usedCodes.isEmpty()) {
+                    // 对于旧数据，初始化为空集合
+                    // 这个检查确保即使旧数据中没有 usedCodes 字段，也能正确初始化
+                    playerData.usedCodes = mutableSetOf()
+                }
+
                 // 处理lastFindOpponentTime字段的兼容性
                 if (playerData.lastFindOpponentTime == 0L) {
                     // 对于旧数据，设置为当前时间减去7小时（确保第一次使用能获得奖励）

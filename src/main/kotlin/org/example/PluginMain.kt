@@ -65,7 +65,7 @@ object PluginMain : KotlinPlugin(
     // 添加获取周末狂欢消息的函数
     private fun getWeekendBonusMessage(): String {
         return if (isWeekendBonus()) {
-            "\n🎉 周末狂欢：所有奖励翻倍！🎉"
+            "🎉周末狂欢：所有奖励翻倍🎉"
         } else {
             ""
         }
@@ -114,6 +114,61 @@ object PluginMain : KotlinPlugin(
             var playerData = PlayerDataManager.getPlayerData(senderId)
 
             when {
+
+                message.startsWith("/兑换码 ") -> {
+                    // 检查玩家是否已注册
+                    if (playerData == null) {
+                        group.sendMessage("你还没有注册，请先使用\"/签到\"命令注册")
+                        return@subscribeAlways
+                    }
+
+                    val code = message.substringAfter("/兑换码 ").trim().lowercase() // 转换为小写以忽略大小写
+
+                    // 检查兑换码有效性
+                    when (code) {
+                        "dalaodaidaiwo" -> {
+                            // 检查是否已使用过此兑换码
+                            if (playerData.usedCodes.contains("dalaodaidaiwo")) {
+                                group.sendMessage("您已经使用过这个兑换码了。")
+                            } else {
+                                // 添加兑换码到已使用列表
+                                playerData.usedCodes.add("dalaodaidaiwo")
+
+                                // 增加属性
+                                playerData.baseATK = increaseAttributeWithLimit(playerData.baseATK, 20, playerData.rebirthCount)
+                                playerData.baseDEF = increaseAttributeWithLimit(playerData.baseDEF, 20, playerData.rebirthCount)
+
+                                // 保存数据
+                                PlayerDataManager.savePlayerData(playerData)
+
+                                group.sendMessage("兑换成功！获得20点基础ATK和20点基础DEF！")
+                            }
+                        }
+                        "geiwodianmiaobi" -> {
+                            // 检查是否已使用过此兑换码
+                            if (playerData.usedCodes.contains("geiwodianmiaobi")) {
+                                group.sendMessage("您已经使用过这个兑换码了。")
+                            } else {
+                                // 添加兑换码到已使用列表
+                                playerData.usedCodes.add("geiwodianmiaobi")
+
+                                // 增加喵币
+                                playerData.gold += 500
+
+                                // 保存数据
+                                PlayerDataManager.savePlayerData(playerData)
+
+                                group.sendMessage("兑换成功！获得500喵币！")
+                            }
+                        }
+                        // 可以在这里添加更多兑换码
+                        else -> {
+                            group.sendMessage("无效的兑换码。")
+                        }
+                    }
+                }
+
+
                 message == "/找个对手" -> {
                     // 检查玩家是否已注册
                     if (playerData == null) {
@@ -140,8 +195,8 @@ object PluginMain : KotlinPlugin(
 
                     if (timeSinceLastFind >= sleepBonusTime) {
                         // 给予睡眠补丁奖励
-                        playerData.baseATK = increaseAttributeWithLimit(playerData.baseATK, 3)
-                        playerData.baseDEF = increaseAttributeWithLimit(playerData.baseDEF, 3)
+                        playerData.baseATK = increaseAttributeWithLimit(playerData.baseATK, 3, playerData.rebirthCount)
+                        playerData.baseDEF = increaseAttributeWithLimit(playerData.baseDEF, 3, playerData.rebirthCount)
                         sleepBonusMessage = "\n(已超过6小时未对战，获得睡眠补丁奖励：ATK+3, DEF+3)"
                     }
 
@@ -262,6 +317,9 @@ object PluginMain : KotlinPlugin(
                         return@subscribeAlways
                     }
 
+                    // 计算动态属性上限
+                    val maxAttribute = 225 + 10 * playerData.rebirthCount
+
                     val finalATK = playerData.baseATK +
                         (playerData.equipment?.atk ?: 0) +
                         (playerData.pet?.atk ?: 0) +
@@ -295,21 +353,25 @@ object PluginMain : KotlinPlugin(
                         ""
                     }
 
+                    // 添加属性上限信息
+                    val attributeLimitInfo = "属性上限: ATK/DEF ${maxAttribute} (基础225 + 转生${playerData.rebirthCount}次×10)"
+
                     group.sendMessage("""
-        ${sender.nameCardOrNick} 的信息:
-        ATK: $finalATK (基础: ${playerData.baseATK})
-        DEF: $finalDEF (基础: ${playerData.baseDEF})
-        LUCK: $finalLUCK (基础: ${playerData.baseLUCK})
-        喵币: ${playerData.gold}
-        $equipmentInfo
-        $petInfo
-        $relicInfo
-        $rebirthInfo
-    """.trimIndent())
+                        ${sender.nameCardOrNick} 的信息:
+                        ${attributeLimitInfo}
+                        ATK: $finalATK (基础: ${playerData.baseATK})
+                        DEF: $finalDEF (基础: ${playerData.baseDEF})
+                        LUCK: $finalLUCK (基础: ${playerData.baseLUCK})
+                        喵币: ${playerData.gold}
+                        $equipmentInfo
+                        $petInfo
+                        $relicInfo
+                        $rebirthInfo
+                        """.trimIndent())
 
                     // 检查是否达到上限
-                    if (playerData.baseATK >= 210 || playerData.baseDEF >= 210) {
-                        group.sendMessage("警告：你的基础属性已达到上限(210)！")
+                    if (playerData.baseATK >= maxAttribute || playerData.baseDEF >= maxAttribute) {
+                        group.sendMessage("警告：你的基础属性已达到上限(${maxAttribute})！")
                     }
 
                     // 检查是否达到转生条件
@@ -460,8 +522,8 @@ object PluginMain : KotlinPlugin(
                         +"• /属性重置遗物 - 消耗50点ATK和DEF重置遗物属性\n"
                         +"• /组队(/加入;/离开队伍) - 创建副本队伍（15min冷却，每日10次）\n\n"
                         +"• /更新日志 查看最新版本的更新内容\n"
-                        +"• 祝您愉快！如有BUG请不要联系管理员~\n"
-                        +"• 什么？氪金？请联系管理员~"
+                        +"• /兑换码 [兑换码内容] - 领取新手奖励，[兑换码内容]可以询问其他成员\n"
+                        +"• 祝您愉快！如有BUG请不要联系管理员~"
                     }
 
                     group.sendMessage(helpMessage)
@@ -794,6 +856,119 @@ object PluginMain : KotlinPlugin(
 
                             group.sendMessage(rewardInfo.toString())
 
+                            // 检查是否触发奖励副本 (10%概率)
+                            val triggerBonusDungeon = Random.nextDouble() < 0.05
+                            if (triggerBonusDungeon) {
+                                delay(3000)
+                                group.sendMessage("🎉 奇迹发生了！队伍成员发现了一个隐藏的奖励副本！")
+
+                                // 创建奖励副本 (难度x2，奖励x2)
+                                val bonusDungeon = Dungeon(
+                                    dungeon.id * 10, // 使用特殊ID标识奖励副本
+                                    "${dungeon.name}(奖励)",
+                                    dungeon.difficulty * 2,
+                                    dungeon.reward * 2
+                                )
+
+                                // 生成奖励副本事件
+                                val bonusEvents = DungeonStoryGenerator.generateBonusDungeonEvents(team, bonusDungeon)
+
+                                // 发送前3个事件，每个间隔4秒
+                                for (i in 0 until 3) {
+                                    delay(4000)
+                                    group.sendMessage(bonusEvents[i].description)
+                                }
+
+                                // 发送BOSS事件
+                                delay(4000)
+                                group.sendMessage(bonusEvents[3].description)
+
+                                // 计算奖励副本的成功率
+                                val bonusTotalSuccessRateChange = bonusEvents.take(3).sumOf { it.successRateChange }
+                                val bonusBaseSuccessRate = (teamPower / bonusDungeon.difficulty).coerceAtMost(1.0)
+                                val bonusFinalSuccessRate = (bonusBaseSuccessRate + bonusTotalSuccessRateChange).coerceIn(0.0, 1.0)
+                                val bonusRandom = Random.nextDouble(0.0, 1.0)
+                                val bonusSuccess = bonusRandom <= bonusFinalSuccessRate
+
+                                // 计算奖励副本的奖励
+                                val bonusBaseReward = bonusDungeon.reward * bonusMultiplier
+                                val bonusActualReward = if (bonusSuccess) {
+                                    bonusBaseReward
+                                } else {
+                                    (bonusBaseReward * 0.1).toInt().coerceAtLeast(1)
+                                }
+
+                                // 计算额外奖励
+                                val bonusTotalExtraGold = bonusEvents.take(3).sumOf { it.extraGold } * bonusMultiplier
+                                val bonusTotalExtraATK = bonusEvents.take(3).sumOf { it.extraATK } * bonusMultiplier
+                                val bonusTotalExtraDEF = bonusEvents.take(3).sumOf { it.extraDEF } * bonusMultiplier
+
+                                // 平分奖励
+                                val bonusRewardPerPerson = (bonusActualReward + bonusTotalExtraGold) / 4
+
+                                // 发送结果
+                                delay(5000)
+
+                                if (bonusSuccess) {
+                                    group.sendMessage("🌟 队伍成功通过了奖励副本！获得了丰厚的额外奖励！")
+
+                                    val bonusRewardInfo = StringBuilder()
+                                    bonusRewardInfo.append("奖励副本攻略成功！每人获得${bonusRewardPerPerson}喵币。")
+
+                                    if (bonusTotalExtraGold > 0) {
+                                        bonusRewardInfo.append("\n额外喵币奖励: +${bonusTotalExtraGold}喵币")
+                                    }
+                                    if (bonusTotalExtraATK > 0) {
+                                        bonusRewardInfo.append("\n额外ATK奖励: +${bonusTotalExtraATK}点基础ATK")
+                                    }
+                                    if (bonusTotalExtraDEF > 0) {
+                                        bonusRewardInfo.append("\n额外DEF奖励: +${bonusTotalExtraDEF}点基础DEF")
+                                    }
+
+                                    bonusRewardInfo.append("\n基础成功率: ${"%.1f".format(bonusBaseSuccessRate * 100)}%")
+                                    bonusRewardInfo.append("\n事件调整: ${if (bonusTotalSuccessRateChange >= 0) "+" else ""}${"%.1f".format(bonusTotalSuccessRateChange * 100)}%")
+                                    bonusRewardInfo.append("\n最终成功率: ${"%.1f".format(bonusFinalSuccessRate * 100)}%")
+
+                                    group.sendMessage(bonusRewardInfo.toString())
+                                } else {
+                                    group.sendMessage("😢 队伍未能在奖励副本中获胜，但仍获得了一些安慰奖励...")
+
+                                    val bonusFailInfo = StringBuilder()
+                                    bonusFailInfo.append("奖励副本攻略失败。每人获得${bonusRewardPerPerson}喵币。")
+                                    bonusFailInfo.append("\n基础成功率: ${"%.1f".format(baseSuccessRate * 100)}%")
+                                    bonusFailInfo.append("\n事件调整: ${if (bonusTotalSuccessRateChange >= 0) "+" else ""}${"%.1f".format(bonusTotalSuccessRateChange * 100)}%")
+                                    bonusFailInfo.append("\n最终成功率: ${"%.1f".format(bonusFinalSuccessRate * 100)}%")
+
+                                    group.sendMessage(bonusFailInfo.toString())
+                                }
+
+                                // 发放奖励副本的奖励（不占用每日次数）
+                                val bonusRewardMessages = mutableListOf<String>()
+
+                                team.members.forEach { member ->
+                                    val memberData = PlayerDataManager.getPlayerData(member.playerId)
+                                    if (memberData != null) {
+                                        // 奖励副本的奖励不占用每日次数，所有玩家都能获得
+                                        memberData.gold += bonusRewardPerPerson
+                                        if (bonusSuccess) {
+                                            // 改为全额奖励，每个队员获得全部额外属性
+                                            memberData.baseATK = increaseAttributeWithLimit(memberData.baseATK, bonusTotalExtraATK, memberData.rebirthCount)
+                                            memberData.baseDEF = increaseAttributeWithLimit(memberData.baseDEF, bonusTotalExtraDEF, memberData.rebirthCount)
+                                        }
+
+                                        PlayerDataManager.savePlayerData(memberData)
+
+                                        // 更新奖励消息
+                                        val bonusInfo = if (isWeekendBonus) " (周末狂欢双倍奖励)" else ""
+                                        bonusRewardMessages.add("${member.playerName} 获得${bonusRewardPerPerson}喵币${if (bonusSuccess) "和属性奖励" else ""}$bonusInfo")
+                                    }
+                                }
+
+                                //if (bonusRewardMessages.isNotEmpty()) {
+                                    //group.sendMessage("奖励分配：\n" + bonusRewardMessages.joinToString("\n"))
+                                //}
+                            }
+
                         } else {
                             group.sendMessage("经过一番苦战，菜鸡们最终还是不敌BOSS……$weekendBonusMessage")
 
@@ -819,8 +994,8 @@ object PluginMain : KotlinPlugin(
                                     // 未达上限，正常获得奖励
                                     memberData.gold += rewardPerPerson
                                     if (success) {
-                                        memberData.baseATK = increaseAttributeWithLimit(memberData.baseATK, bonusExtraATK)
-                                        memberData.baseDEF = increaseAttributeWithLimit(memberData.baseDEF, bonusExtraDEF)
+                                        memberData.baseATK = increaseAttributeWithLimit(memberData.baseATK, bonusExtraATK, memberData.rebirthCount)
+                                        memberData.baseDEF = increaseAttributeWithLimit(memberData.baseDEF, bonusExtraDEF, memberData.rebirthCount)
                                     }
                                     // 增加每日副本计数
                                     memberData.dailyDungeonCount += 1
@@ -829,7 +1004,7 @@ object PluginMain : KotlinPlugin(
                                     val bonusInfo = if (isWeekendBonus) " (周末狂欢双倍奖励)" else ""
                                     rewardMessages.add("${member.playerName} 获得${rewardPerPerson}喵币${if (success) "和属性奖励" else ""}$bonusInfo，今日副本次数: ${memberData.dailyDungeonCount}/10")
                                 } else {
-                                    // 已达上限，不获得奖励，但仍计入冷却时间
+                                    // 已达上限，不获得普通副本奖励，但仍计入冷却时间
                                     noRewardPlayers.add(member.playerName)
                                 }
 
@@ -842,14 +1017,14 @@ object PluginMain : KotlinPlugin(
                         }
 
                         // 发送奖励消息
-                        if (rewardMessages.isNotEmpty()) {
-                            group.sendMessage("奖励分配：\n" + rewardMessages.joinToString("\n"))
-                        }
+                        //if (rewardMessages.isNotEmpty()) {
+                            //group.sendMessage("奖励分配：\n" + rewardMessages.joinToString("\n"))
+                        //}
 
                         // 发送已达上限玩家消息
-                        if (noRewardPlayers.isNotEmpty()) {
-                            group.sendMessage("${noRewardPlayers.joinToString("、")} 今日副本次数已达上限(10/10)，无法获得奖励\n感谢 ${noRewardPlayers.joinToString("、")} 的无私奉献~")
-                        }
+                        //if (noRewardPlayers.isNotEmpty()) {
+                            //group.sendMessage("${noRewardPlayers.joinToString("、")} 今日副本次数已达上限(10/10)，无法获得奖励\n感谢 ${noRewardPlayers.joinToString("、")} 的无私奉献~")
+                        //}
 
                         // 解散队伍
                         TeamManager.disbandTeam(group.id)
@@ -1103,11 +1278,14 @@ object PluginMain : KotlinPlugin(
     private fun isGroupEnabled(groupId: Long): Boolean {
         return WhitelistConfig.enabledGroups.contains(groupId)
     }
+
     // 属性增加时检查上限
-    private fun increaseAttributeWithLimit(currentValue: Int, increase: Int): Int {
+    private fun increaseAttributeWithLimit(currentValue: Int, increase: Int, rebirthCount: Int): Int {
+        // 计算动态上限：225 + 10 * 转生次数
+        val maxValue = 225 + 10 * rebirthCount
         val newValue = currentValue + increase
-        return if (newValue > 225) {
-            225
+        return if (newValue > maxValue) {
+            maxValue
         } else {
             newValue
         }
@@ -1262,10 +1440,10 @@ object PluginMain : KotlinPlugin(
 
         return if (attackerPower > defenderPower) {
             // 攻击方胜利
-            attacker.baseATK = increaseAttributeWithLimit(attacker.baseATK, 6)
-            attacker.baseDEF = increaseAttributeWithLimit(attacker.baseDEF, 6)
-            defender.baseATK = increaseAttributeWithLimit(defender.baseATK, 3)
-            defender.baseDEF = increaseAttributeWithLimit(defender.baseDEF, 3)
+            attacker.baseATK = increaseAttributeWithLimit(attacker.baseATK, 6, attacker.rebirthCount)
+            attacker.baseDEF = increaseAttributeWithLimit(attacker.baseDEF, 6, attacker.rebirthCount)
+            defender.baseATK = increaseAttributeWithLimit(defender.baseATK, 3, defender.rebirthCount)
+            defender.baseDEF = increaseAttributeWithLimit(defender.baseDEF, 3, defender.rebirthCount)
 
             // 喵币转移（只对真实玩家）
             if (defender.qqId != 0L && defender.gold > 0) {
@@ -1278,10 +1456,10 @@ object PluginMain : KotlinPlugin(
             PkResult(attacker, defender, false, criticalHit, criticalPlayerId, criticalEquipment)
         } else if (defenderPower > attackerPower) {
             // 防御方胜利（反击）
-            defender.baseATK = increaseAttributeWithLimit(defender.baseATK, 6)
-            defender.baseDEF = increaseAttributeWithLimit(defender.baseDEF, 6)
-            attacker.baseATK = increaseAttributeWithLimit(attacker.baseATK, 3)
-            attacker.baseDEF = increaseAttributeWithLimit(attacker.baseDEF, 3)
+            defender.baseATK = increaseAttributeWithLimit(defender.baseATK, 6, attacker.rebirthCount)
+            defender.baseDEF = increaseAttributeWithLimit(defender.baseDEF, 6, attacker.rebirthCount)
+            attacker.baseATK = increaseAttributeWithLimit(attacker.baseATK, 3, attacker.rebirthCount)
+            attacker.baseDEF = increaseAttributeWithLimit(attacker.baseDEF, 3, attacker.rebirthCount)
 
             // 喵币转移（只对真实玩家）
             if (attacker.qqId != 0L && attacker.gold > 0) {
@@ -1294,10 +1472,10 @@ object PluginMain : KotlinPlugin(
             PkResult(defender, attacker, false, criticalHit, criticalPlayerId, criticalEquipment)
         } else {
             // 平局
-            attacker.baseATK = increaseAttributeWithLimit(attacker.baseATK, 3)
-            attacker.baseDEF = increaseAttributeWithLimit(attacker.baseDEF, 3)
-            defender.baseATK = increaseAttributeWithLimit(defender.baseATK, 3)
-            defender.baseDEF = increaseAttributeWithLimit(defender.baseDEF, 3)
+            attacker.baseATK = increaseAttributeWithLimit(attacker.baseATK, 3, attacker.rebirthCount)
+            attacker.baseDEF = increaseAttributeWithLimit(attacker.baseDEF, 3, attacker.rebirthCount)
+            defender.baseATK = increaseAttributeWithLimit(defender.baseATK, 3, attacker.rebirthCount)
+            defender.baseDEF = increaseAttributeWithLimit(defender.baseDEF, 3, attacker.rebirthCount)
 
             PkResult(attacker, defender, true, criticalHit, criticalPlayerId, criticalEquipment)
         }
