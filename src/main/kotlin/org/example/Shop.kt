@@ -10,8 +10,38 @@ object Shop {
         Equipment("叶凡的Ball", atk = 6, def = 6, luck = 3, price = 5000),
         Equipment("茯苓大片", atk = 16, def = 16, luck = 4, price = 15000),
         Equipment("屠狗利刃", atk = 50, def = 25, luck = 5, price = 33333),
-        Equipment("赞助广告位", atk = 114, def = 51, luck = 4, price = 1919810),
+        Equipment("赞助广告位", atk = 66, def = 96, luck = 6, price = 66666),
     )
+
+    // 新增特殊装备（不在商店出售）
+    val specialEquipmentList = listOf(
+        Equipment("[SR]王国圣剑", atk = 98, def = 68, luck = 8, price = 36666),
+        Equipment("[SSR]天使权杖", atk = 138, def = 88, luck = 10, price = 66666),
+        Equipment("[UR]魔之宝珠", atk = 198, def = 98, luck = 15, price = 96666)
+    )
+
+    // 获取特殊装备的方法
+    fun getSpecialEquipmentByName(name: String): Equipment? {
+        return specialEquipmentList.find { it.name == name }
+    }
+
+
+    // 新增道具列表
+    val itemList = listOf(
+        Item("隐藏副本进入券", price = 999, maxStack = 1, description = "使用后确保隐藏副本的出现（需每人均持有1枚）")
+    )
+
+    // 道具数据类
+    data class Item(
+        val name: String,
+        val price: Int,
+        val maxStack: Int, // 最大堆叠数量
+        val description: String
+    )
+
+    fun getItemByName(name: String): Item? {
+        return itemList.find { it.name == name }
+    }
 
     fun getEquipmentByName(name: String): Equipment? {
         return equipmentList.find { it.name == name }

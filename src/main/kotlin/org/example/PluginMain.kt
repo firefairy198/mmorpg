@@ -12,7 +12,7 @@ import java.time.format.DateTimeFormatter
 import kotlin.random.Random
 import net.mamoe.mirai.message.data.buildMessageChain
 import kotlinx.coroutines.*
-
+import net.mamoe.mirai.message.data.At
 
 object PluginMain : KotlinPlugin(
     JvmPluginDescription(
@@ -65,9 +65,37 @@ object PluginMain : KotlinPlugin(
     // 添加获取周末狂欢消息的函数
     private fun getWeekendBonusMessage(): String {
         return if (isWeekendBonus()) {
-            "🎉周末狂欢：所有奖励翻倍🎉"
+            "🎉周末狂欢：所有奖励翻倍🎉\n"
         } else {
             ""
+        }
+    }
+
+    // 检查玩家是否可以获得特定装备
+    private fun canPlayerGetEquipment(playerData: PlayerData, equipment: Equipment): Boolean {
+        val currentEquipment = playerData.equipment
+
+        // 如果没有装备，可以获取任何装备
+        if (currentEquipment == null) {
+            return true
+        }
+
+        // 检查装备等级限制
+        return when (equipment.name) {
+            "[UR]魔之宝珠" -> currentEquipment.name != "[UR]魔之宝珠"
+            "[SSR]天使权杖" -> currentEquipment.name != "[UR]魔之宝珠" && currentEquipment.name != "[SSR]天使权杖"
+            "[SR]王国圣剑" -> currentEquipment.name != "[UR]魔之宝珠" && currentEquipment.name != "[SSR]天使权杖" && currentEquipment.name != "[SR]王国圣剑"
+            else -> true // 其他装备没有限制
+        }
+    }
+
+    // 获取装备等级
+    private fun getEquipmentLevel(equipmentName: String): Int {
+        return when {
+            equipmentName.contains("[UR]") -> 3
+            equipmentName.contains("[SSR]") -> 2
+            equipmentName.contains("[SR]") -> 1
+            else -> 0
         }
     }
 
@@ -347,6 +375,13 @@ object PluginMain : KotlinPlugin(
                         "遗物: ${it.name} (${it.grade}级, ATK+${it.atk}, DEF+${it.def}, LUCK+${it.luck})"
                     } ?: "遗物: 无"
 
+                    // 添加道具信息
+                    val ticketInfo = if (playerData.hiddenDungeonTickets > 0) {
+                        "隐藏副本进入券: ${playerData.hiddenDungeonTickets}个"
+                    } else {
+                        "隐藏副本进入券: 无"
+                    }
+
                     val rebirthInfo = if (playerData.rebirthCount > 0) {
                         "转生次数: ${playerData.rebirthCount}"
                     } else {
@@ -356,13 +391,29 @@ object PluginMain : KotlinPlugin(
                     // 添加属性上限信息
                     val attributeLimitInfo = "属性上限: ATK/DEF ${maxAttribute} (基础225 + 转生${playerData.rebirthCount}次×10)"
 
+                    // 添加装备等级信息
+                    val equipmentLevelInfo = if (playerData.equipment != null) {
+                        val level = getEquipmentLevel(playerData.equipment!!.name)
+                        val levelName = when (level) {
+                            3 -> "UR"
+                            2 -> "SSR"
+                            1 -> "SR"
+                            else -> "普通"
+                        }
+                        "装备等级: $levelName"
+                    } else {
+                        "装备等级: 无"
+                    }
+
                     group.sendMessage("""
                         ${sender.nameCardOrNick} 的信息:
                         ${attributeLimitInfo}
+                        ${equipmentLevelInfo}
                         ATK: $finalATK (基础: ${playerData.baseATK})
                         DEF: $finalDEF (基础: ${playerData.baseDEF})
                         LUCK: $finalLUCK (基础: ${playerData.baseLUCK})
                         喵币: ${playerData.gold}
+                        ${ticketInfo}
                         $equipmentInfo
                         $petInfo
                         $relicInfo
@@ -413,6 +464,20 @@ object PluginMain : KotlinPlugin(
                     }
 
                     group.sendMessage("装备商店:\n$shopList\n使用\"/购买 装备名\"来购买装备")
+                }
+
+                message == "/道具商店" -> {
+                    // 检查玩家是否已注册
+                    if (playerData == null) {
+                        group.sendMessage("你还没有注册，请先使用\"/签到\"命令注册")
+                        return@subscribeAlways
+                    }
+
+                    val itemList = Shop.itemList.joinToString("\n") { item ->
+                        "${item.name} - 价格: ${item.price}喵币 (${item.description})"
+                    }
+
+                    group.sendMessage("道具商店:\n$itemList\n使用\"/购买道具 道具名\"来购买道具")
                 }
 
                 message == "/转生" -> {
@@ -637,7 +702,7 @@ object PluginMain : KotlinPlugin(
                         val weekendBonusMessage = getWeekendBonusMessage()
 
 
-                        group.sendMessage("${weekendBonusMessage}\n${sender.nameCardOrNick} 创建了队伍${countInfo}，等待队员加入（5分钟有效）。使用\"/加入\"命令加入队伍。")
+                        group.sendMessage("${weekendBonusMessage}${sender.nameCardOrNick} 创建了队伍${countInfo}，等待队员加入（5分钟有效）。使用\"/加入\"命令加入队伍。")
                     } else {
                         group.sendMessage("创建队伍失败，可能该群已经有一个队伍了。")
                     }
@@ -664,7 +729,7 @@ object PluginMain : KotlinPlugin(
                     // 检查当前群是否有队伍
                     val team = TeamManager.getTeamByGroup(group.id)
                     if (team == null) {
-                        group.sendMessage("当前群没有队伍，请先由队长使用\"/组队\"创建队伍。")
+                        group.sendMessage("当前群没有队伍或已超时解散，请先使用'/组队'创建队伍。")
                         return@subscribeAlways
                     }
 
@@ -710,8 +775,15 @@ object PluginMain : KotlinPlugin(
                                 "副本${dungeon.id}: ${dungeon.name} - 难度${dungeon.difficulty / 1000}K - 成功率约${"%.2f".format(successRate * 100)}%"
                             }
 
-                            group.sendMessage("队伍已满！队伍总ATK: $totalATK, 总LUCK: $totalLUCK, 综合战力: $teamPower\n" +
-                                "请队长使用\"/选择副本 [1-5]\"命令选择副本。\n副本推荐:\n$dungeonRecommendations")
+                            // 在队伍已满时@队长并发送消息
+                            val captainId = team.captainId
+                            val captainAt = At(captainId) // 创建@队长的消息组件
+
+                            val message = captainAt +
+                                " 队伍已满！队伍总ATK: $totalATK, 总LUCK: $totalLUCK, 综合战力: $teamPower\n" +
+                                "请使用\"/选择副本 [1-5]\"命令选择副本。\n副本推荐:\n$dungeonRecommendations"
+
+                            group.sendMessage(message)
                         }
                     } else {
                         group.sendMessage("加入队伍失败，可能队伍已满或你已在其他队伍中。")
@@ -744,6 +816,34 @@ object PluginMain : KotlinPlugin(
                         return@subscribeAlways
                     }
 
+                    // 检查队长副本CD（15分钟）
+                    val currentTime = System.currentTimeMillis()
+                    val remainingTime = 15 * 60 * 1000 - (currentTime - playerData.lastDungeonTime)
+
+                    if (remainingTime > 0) {
+                        val minutes = remainingTime / 60000
+                        val seconds = (remainingTime % 60000) / 1000
+                        group.sendMessage("副本冷却中，还需${minutes}分${seconds}秒")
+                        return@subscribeAlways
+                    }
+
+                    // 检查所有队员的副本CD
+                    val membersWithCooldown = mutableListOf<String>()
+                    team.members.forEach { member ->
+                        val memberData = PlayerDataManager.getPlayerData(member.playerId)
+                        if (memberData != null) {
+                            val memberRemainingTime = 15 * 60 * 1000 - (currentTime - memberData.lastDungeonTime)
+                            if (memberRemainingTime > 0) {
+                                membersWithCooldown.add(member.playerName)
+                            }
+                        }
+                    }
+
+                    if (membersWithCooldown.isNotEmpty()) {
+                        group.sendMessage("以下队员副本冷却中: ${membersWithCooldown.joinToString("、")}")
+                        return@subscribeAlways
+                    }
+
                     val dungeonNum = message.substringAfter("/选择副本 ").trim().toIntOrNull()
                     val dungeon = if (dungeonNum != null) DungeonManager.getDungeonById(dungeonNum) else null
 
@@ -754,6 +854,17 @@ object PluginMain : KotlinPlugin(
 
                     // 设置队伍选择的副本
                     team.dungeonId = dungeon.id
+
+                    // 更新所有队员的副本冷却时间戳
+                    team.members.forEach { member ->
+                        val memberData = PlayerDataManager.getPlayerData(member.playerId)
+                        if (memberData != null) {
+                            memberData.lastDungeonTime = System.currentTimeMillis()
+                            // 确保清空旧字段（如果存在）
+                            memberData.lastDungeonDate = null
+                            PlayerDataManager.savePlayerData(memberData)
+                        }
+                    }
 
                     // 使用 GlobalScope 启动协程处理副本攻略
                     GlobalScope.launch {
@@ -856,11 +967,48 @@ object PluginMain : KotlinPlugin(
 
                             group.sendMessage(rewardInfo.toString())
 
-                            // 检查是否触发奖励副本 (10%概率)
-                            val triggerBonusDungeon = Random.nextDouble() < 0.05
+
+                            // 检查队伍中每个玩家的隐藏副本进入券数量
+                            val teamTickets = mutableListOf<Int>()
+                            var allHaveTicket = true
+                            var anyHasTicket = false
+
+                            // 获取每个队员的隐藏副本进入券数量
+                            team.members.forEach { member ->
+                                val memberData = PlayerDataManager.getPlayerData(member.playerId)
+                                val ticketCount = memberData?.hiddenDungeonTickets ?: 0
+                                teamTickets.add(ticketCount)
+
+                                if (ticketCount < 1) {
+                                    allHaveTicket = false
+                                } else {
+                                    anyHasTicket = true
+                                }
+                            }
+
+                            // 决定是否触发奖励副本
+                            val triggerBonusDungeon = if (allHaveTicket) {
+                                true // 全队有券，100%触发
+                            } else {
+                                Random.nextDouble() < 0.05 // 否则5%概率触发
+                            }
+
                             if (triggerBonusDungeon) {
                                 delay(3000)
-                                group.sendMessage("🎉 奇迹发生了！队伍成员发现了一个隐藏的奖励副本！")
+                                if (allHaveTicket) {
+                                    group.sendMessage("🎉 队伍使用了隐藏副本进入券，确保了隐藏副本的出现！")
+
+                                    // 消耗所有队员的券
+                                    team.members.forEach { member ->
+                                        val memberData = PlayerDataManager.getPlayerData(member.playerId)
+                                        if (memberData != null && memberData.hiddenDungeonTickets >= 1) {
+                                            memberData.hiddenDungeonTickets -= 1
+                                            PlayerDataManager.savePlayerData(memberData)
+                                        }
+                                    }
+                                } else {
+                                    group.sendMessage("🎉 奇迹发生了！队伍发现了一个隐藏的奖励副本！")
+                                }
 
                                 // 创建奖励副本 (难度x2，奖励x2)
                                 val bonusDungeon = Dungeon(
@@ -930,6 +1078,55 @@ object PluginMain : KotlinPlugin(
                                     bonusRewardInfo.append("\n最终成功率: ${"%.1f".format(bonusFinalSuccessRate * 100)}%")
 
                                     group.sendMessage(bonusRewardInfo.toString())
+
+                                    // 添加装备掉落逻辑
+                                    delay(3000)
+
+                                    // 获取原始副本难度
+                                    val originalDungeonId = bonusDungeon.id / 10
+
+                                    // 检查是否掉落装备 (15%概率)
+                                    val shouldDropEquipment = Random.nextDouble() < 0.15
+                                    if (shouldDropEquipment) {
+                                        // 根据原始副本难度确定掉落装备
+                                        val dropEquipment = when (originalDungeonId) {
+                                            3 -> Shop.getSpecialEquipmentByName("[SR]王国圣剑")
+                                            4 -> Shop.getSpecialEquipmentByName("[SSR]天使权杖")
+                                            5 -> Shop.getSpecialEquipmentByName("[UR]魔之宝珠")
+                                            else -> null
+                                    }
+
+                                        if (dropEquipment != null) {
+                                            // 筛选可以接受该装备的玩家
+                                            val eligiblePlayers = team.members.filter { member ->
+                                                val memberData = PlayerDataManager.getPlayerData(member.playerId)
+                                                memberData != null && canPlayerGetEquipment(memberData, dropEquipment)
+                                            }
+
+                                            if (eligiblePlayers.isNotEmpty()) {
+                                                // 随机选择一个符合条件的玩家
+                                                val luckyPlayer = eligiblePlayers.random()
+                                                val playerData = PlayerDataManager.getPlayerData(luckyPlayer.playerId)
+
+                                                if (playerData != null) {
+                                                    // 卖掉现有装备（如果有）
+                                                    val oldEquipment = playerData.equipment
+                                                    if (oldEquipment != null) {
+                                                        playerData.gold += oldEquipment.price
+                                                    }
+
+                                                    // 装备新装备
+                                                    playerData.equipment = dropEquipment.copy()
+                                                    PlayerDataManager.savePlayerData(playerData)
+
+                                                    group.sendMessage("🎁 隐藏副本掉落！${luckyPlayer.playerName} 获得了 ${dropEquipment.name}！")
+                                                }
+                                            } else {
+                                                group.sendMessage("💔 隐藏副本掉落了 ${dropEquipment.name}，但队伍中没有人符合装备条件。")
+                                            }
+                                        }
+                                    }
+
                                 } else {
                                     group.sendMessage("😢 队伍未能在奖励副本中获胜，但仍获得了一些安慰奖励...")
 
@@ -964,9 +1161,6 @@ object PluginMain : KotlinPlugin(
                                     }
                                 }
 
-                                //if (bonusRewardMessages.isNotEmpty()) {
-                                    //group.sendMessage("奖励分配：\n" + bonusRewardMessages.joinToString("\n"))
-                                //}
                             }
 
                         } else {
@@ -1008,23 +1202,12 @@ object PluginMain : KotlinPlugin(
                                     noRewardPlayers.add(member.playerName)
                                 }
 
-                                // 无论是否获得奖励，都更新副本CD
-                                memberData.lastDungeonTime = System.currentTimeMillis()
+                                // 注意：这里不再更新副本CD，因为已经在选择副本时更新过了
                                 // 确保清空旧字段（如果存在）
                                 memberData.lastDungeonDate = null
                                 PlayerDataManager.savePlayerData(memberData)
                             }
                         }
-
-                        // 发送奖励消息
-                        //if (rewardMessages.isNotEmpty()) {
-                            //group.sendMessage("奖励分配：\n" + rewardMessages.joinToString("\n"))
-                        //}
-
-                        // 发送已达上限玩家消息
-                        //if (noRewardPlayers.isNotEmpty()) {
-                            //group.sendMessage("${noRewardPlayers.joinToString("、")} 今日副本次数已达上限(10/10)，无法获得奖励\n感谢 ${noRewardPlayers.joinToString("、")} 的无私奉献~")
-                        //}
 
                         // 解散队伍
                         TeamManager.disbandTeam(group.id)
@@ -1234,6 +1417,35 @@ object PluginMain : KotlinPlugin(
                     group.sendMessage(UpdateLog.getFormattedLog())
                 }
 
+                message.startsWith("/购买道具 ") -> {
+                    // 检查玩家是否已注册
+                    if (playerData == null) {
+                        group.sendMessage("你还没有注册，请先使用\"/签到\"命令注册")
+                        return@subscribeAlways
+                    }
+
+                    val itemName = message.substringAfter("/购买道具 ").trim()
+                    val item = Shop.getItemByName(itemName)
+
+                    if (item == null) {
+                        group.sendMessage("没有找到名为\"$itemName\"的道具")
+                    } else if (playerData.gold < item.price) {
+                        group.sendMessage("喵币不足！需要${item.price}喵币，你只有${playerData.gold}喵币")
+                    } else if (itemName == "隐藏副本进入券" && playerData.hiddenDungeonTickets >= item.maxStack) {
+                        group.sendMessage("每个玩家最多只能持有${item.maxStack}个${itemName}")
+                    } else {
+                        playerData.gold -= item.price
+
+                        // 特殊处理隐藏副本进入券
+                        if (itemName == "隐藏副本进入券") {
+                            playerData.hiddenDungeonTickets += 1
+                        }
+
+                        PlayerDataManager.savePlayerData(playerData)
+                        group.sendMessage("购买成功！花费${item.price}喵币，获得1个${itemName}，剩余${playerData.gold}喵币")
+                    }
+                }
+
                 message.startsWith("/购买 ") -> {
                     // 检查玩家是否已注册
                     if (playerData == null) {
@@ -1244,7 +1456,11 @@ object PluginMain : KotlinPlugin(
                     val equipmentName = message.substringAfter("/购买 ").trim()
                     val equipment = Shop.getEquipmentByName(equipmentName)
 
-                    if (equipment == null) {
+                    // 检查是否是特殊装备
+                    val isSpecialEquipment = Shop.getSpecialEquipmentByName(equipmentName) != null
+                    if (isSpecialEquipment) {
+                        group.sendMessage("特殊装备无法在商店购买，只能通过隐藏副本获得。")
+                    } else if (equipment == null) {
                         group.sendMessage("没有找到名为\"$equipmentName\"的装备")
                     } else if (playerData.gold < equipment.price) {
                         group.sendMessage("喵币不足！需要${equipment.price}喵币，你只有${playerData.gold}喵币")

@@ -22,7 +22,8 @@ data class PlayerData(
     var relic: Relic? = null,
     var lastFindOpponentTime: Long = 0,
     // 新增兑换码使用记录字段
-    var usedCodes: MutableSet<String> = mutableSetOf() // 存储已使用的兑换码
+    var usedCodes: MutableSet<String> = mutableSetOf(), // 存储已使用的兑换码
+    var hiddenDungeonTickets: Int = 0 // 隐藏副本进入券数量
 )
 
 // 新增宠物数据类
