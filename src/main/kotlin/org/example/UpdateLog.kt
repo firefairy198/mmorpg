@@ -37,7 +37,7 @@ object UpdateLog {
             builder.append("\n")
         }
 
-        builder.append("更多功能开发中，敬请期待！")
+        builder.append("更多tips在群公告的在线表格中（有2个分页）\n你所有的问题基本上都可以查到")
         return builder.toString()
     }
 

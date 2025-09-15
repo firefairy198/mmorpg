@@ -487,11 +487,22 @@ object PluginMain : KotlinPlugin(
                         return@subscribeAlways
                     }
 
+                    if (RebirthConfirmation.getPendingRebirth(senderId) != null) {
+                        group.sendMessage("您已经有一个转生请求等待确认，请先回复\"是\"或\"否\"。")
+                        return@subscribeAlways
+                    }
+
                     // 检查是否达到转生条件
                     if (playerData.baseATK < 200 || playerData.baseDEF < 200) {
                         group.sendMessage("转生需要基础ATK和DEF都达到200以上！")
                         return@subscribeAlways
                     }
+
+                    // 执行转生减属性
+                    playerData.baseATK = (playerData.baseATK - 150).coerceAtLeast(10)
+                    playerData.baseDEF = (playerData.baseDEF - 150).coerceAtLeast(10)
+
+                    PlayerDataManager.savePlayerData(playerData)
 
                     // 生成随机宠物
                     val newPet = generateRandomPet()
@@ -508,8 +519,6 @@ object PluginMain : KotlinPlugin(
                     } else {
                         // 没有宠物，直接设置
                         playerData.pet = newPet
-                        playerData.baseATK = (playerData.baseATK - 150).coerceAtLeast(10)
-                        playerData.baseDEF = (playerData.baseDEF - 150).coerceAtLeast(10)
                         playerData.rebirthCount++
 
                         PlayerDataManager.savePlayerData(playerData)
@@ -553,9 +562,6 @@ object PluginMain : KotlinPlugin(
                             group.sendMessage("已保留原宠物")
                         }
 
-                        // 执行转生
-                        playerData.baseATK = (playerData.baseATK - 150).coerceAtLeast(10)
-                        playerData.baseDEF = (playerData.baseDEF - 150).coerceAtLeast(10)
                         playerData.rebirthCount++
 
                         PlayerDataManager.savePlayerData(playerData)
@@ -1007,7 +1013,7 @@ object PluginMain : KotlinPlugin(
                                         }
                                     }
                                 } else {
-                                    group.sendMessage("🎉 奇迹发生了！队伍发现了一个隐藏的奖励副本！")
+                                    group.sendMessage("🎉 One more thing！")
                                 }
 
                                 // 创建奖励副本 (难度x2，奖励x2)
@@ -1160,10 +1166,10 @@ object PluginMain : KotlinPlugin(
                                         bonusRewardMessages.add("${member.playerName} 获得${bonusRewardPerPerson}喵币${if (bonusSuccess) "和属性奖励" else ""}$bonusInfo")
                                     }
                                 }
-
                             }
 
                         } else {
+
                             group.sendMessage("经过一番苦战，菜鸡们最终还是不敌BOSS……$weekendBonusMessage")
 
                             // 添加失败信息

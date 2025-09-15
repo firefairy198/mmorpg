@@ -10,7 +10,7 @@ object Shop {
         Equipment("叶凡的Ball", atk = 6, def = 6, luck = 3, price = 5000),
         Equipment("茯苓大片", atk = 16, def = 16, luck = 4, price = 15000),
         Equipment("屠狗利刃", atk = 50, def = 25, luck = 5, price = 33333),
-        Equipment("赞助广告位", atk = 66, def = 96, luck = 6, price = 66666),
+        Equipment("无Ming大剑", atk = 66, def = 96, luck = 6, price = 66666),
     )
 
     // 新增特殊装备（不在商店出售）
