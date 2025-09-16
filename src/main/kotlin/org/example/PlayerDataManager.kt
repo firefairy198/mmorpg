@@ -25,6 +25,31 @@ object PlayerDataManager {
             try {
                 val playerData = json.decodeFromString<PlayerData>(file.readText())
 
+                // 兼容性处理：为旧宠物添加随机特殊效果
+                if (playerData.pet != null && playerData.pet!!.specialEffect == null) {
+                    val oldPet = playerData.pet!!
+                    val allEffects = PetEffect.values()
+                    val specialEffect = allEffects.random()
+
+                    playerData.pet = Pet(
+                        oldPet.name,
+                        oldPet.atk,
+                        oldPet.def,
+                        oldPet.luck,
+                        oldPet.grade,
+                        specialEffect
+                    )
+                }
+
+                // 兼容性处理：初始化S型宠物变更券字段
+                if (playerData.sPetChangeTickets == 0) {
+                    // 对于旧数据，初始化为0
+                    playerData.sPetChangeTickets = 0
+                }
+
+                // 保存更新后的数据
+                savePlayerData(playerData)
+
                 // 处理 usedCodes 字段的兼容性
                 if (playerData.usedCodes.isEmpty()) {
                     // 对于旧数据，初始化为空集合

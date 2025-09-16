@@ -15,9 +15,9 @@ object Shop {
 
     // 新增特殊装备（不在商店出售）
     val specialEquipmentList = listOf(
-        Equipment("[SR]王国圣剑", atk = 98, def = 68, luck = 8, price = 36666),
-        Equipment("[SSR]天使权杖", atk = 138, def = 88, luck = 10, price = 66666),
-        Equipment("[UR]魔之宝珠", atk = 198, def = 98, luck = 15, price = 96666)
+        Equipment("[SR]王国圣剑", atk = 98, def = 68, luck = 8, price = 6666),
+        Equipment("[SSR]天使权杖", atk = 138, def = 88, luck = 10, price = 16666),
+        Equipment("[UR]魔之宝珠", atk = 198, def = 98, luck = 15, price = 26666)
     )
 
     // 获取特殊装备的方法
@@ -26,9 +26,10 @@ object Shop {
     }
 
 
-    // 新增道具列表
+    // 道具类商城
     val itemList = listOf(
-        Item("隐藏副本进入券", price = 999, maxStack = 1, description = "使用后确保隐藏副本的出现（需每人均持有1枚）")
+        Item("隐藏副本进入券", price = 999, maxStack = 1, description = "使用后确保隐藏副本的出现（需每人均持有1枚）"),
+        Item("S型宠物辅助职业变更券", price = 1999, maxStack = 10, description = "使用后可以将宠物职业变更为盗贼S、牧师S、宝藏猎手S、吟游诗人S中的随机一种")
     )
 
     // 道具数据类

@@ -144,14 +144,20 @@ object DungeonStoryGenerator {
     )
 
     // 生成随机剧情事件
-    fun generateEvents(team: Team, dungeon: Dungeon): List<DungeonEvent> {
+    // 生成随机剧情事件
+    fun generateEvents(team: Team, dungeon: Dungeon, positiveEventBonus: Double = 0.0, additionalEvents: Int = 0): List<DungeonEvent> {
         val events = mutableListOf<DungeonEvent>()
         val members = team.members.map { it.playerName }
 
-        // 前5个事件
-        repeat(5) {
+        // 基础5个事件 + 宝藏猎手提供的额外事件
+        val totalEvents = 5 + additionalEvents
+
+        // 生成事件
+        repeat(totalEvents) {
             val player = members.random()
-            val isPositive = Random.nextBoolean()
+            // 应用正向事件概率加成（确保不超过合理范围）
+            val positiveChance = (0.5 + positiveEventBonus).coerceIn(0.0, 1.0)
+            val isPositive = Random.nextDouble() < positiveChance
 
             if (isPositive) {
                 val (action, eventGenerator) = positiveEvents.entries.random()
@@ -189,7 +195,7 @@ object DungeonStoryGenerator {
         },
         "沐浴在神圣之光中" to { playerName: String, dungeon: Dungeon ->
             // 根据副本难度计算属性奖励
-            // 基础奖励为5点，每增加40000难度增加1点奖励
+            // 基础奖励为2点，每增加40000难度增加1点奖励
             val baseBonus = 2
             val difficultyBonus = dungeon.difficulty / 40000
             val totalBonus = baseBonus + difficultyBonus
@@ -200,18 +206,55 @@ object DungeonStoryGenerator {
                 extraDEF = totalBonus)
         }
     )
+    private val bonusDungeonNegativeEvents = mapOf(
+        "触发了古老陷阱" to { playerName: String, dungeon: Dungeon ->
+            DungeonEvent(playerName, "触发了古老陷阱", "↓",
+                "[☠☠] $playerName 不小心触发了一个古老的陷阱，队伍受到了惊吓！",
+                successRateChange = -0.05)
+        },
+        "遭遇了时空乱流" to { playerName: String, dungeon: Dungeon ->
+            DungeonEvent(playerName, "遭遇了时空乱流", "↓",
+                "[☠☠☠] $playerName 遭遇了时空乱流，队伍被分散了！",
+                successRateChange = -0.1)
+        },
+        "被幻象迷惑" to { playerName: String, dungeon: Dungeon ->
+            DungeonEvent(playerName, "被幻象迷惑", "↓",
+                "[☠] $playerName 被奖励副本中的幻象迷惑，浪费了宝贵时间！",
+                successRateChange = -0.025)
+        },
+        "惊动了守护者" to { playerName: String, dungeon: Dungeon ->
+            DungeonEvent(playerName, "惊动了守护者", "↓",
+                "[☠☠] $playerName 不小心惊动了奖励副本的守护者，使其更加警惕！",
+                successRateChange = -0.05)
+        },
+        "陷入了魔法沼泽" to { playerName: String, dungeon: Dungeon ->
+            DungeonEvent(playerName, "陷入了魔法沼泽", "↓",
+                "[☠] $playerName 陷入了魔法沼泽，行动变得迟缓！",
+                successRateChange = -0.025)
+        }
+    )
 
     // 修改 generateEvents 方法，添加奖励副本事件生成
-    fun generateBonusDungeonEvents(team: Team, dungeon: Dungeon): List<DungeonEvent> {
+    fun generateBonusDungeonEvents(team: Team, dungeon: Dungeon, positiveEventBonus: Double = 0.0): List<DungeonEvent> {
         val events = mutableListOf<DungeonEvent>()
         val members = team.members.map { it.playerName }
 
-        // 添加3个特殊事件
+        // 添加3个特殊事件，按照20%正面/80%负面的基础概率，加上牧师效果调整
         repeat(3) {
             val player = members.random()
-            val (action, eventGenerator) = bonusDungeonEvents.entries.random()
-            val event = eventGenerator(player, dungeon)
-            events.add(event)
+            // 应用正面事件概率加成（基础20% + 牧师效果调整）
+            val positiveChance = (0.2 + positiveEventBonus).coerceIn(0.0, 1.0)
+            val isPositive = Random.nextDouble() < positiveChance
+
+            if (isPositive) {
+                val (action, eventGenerator) = bonusDungeonEvents.entries.random()
+                val event = eventGenerator(player, dungeon)
+                events.add(event)
+            } else {
+                val (action, eventGenerator) = bonusDungeonNegativeEvents.entries.random()
+                val event = eventGenerator(player, dungeon)
+                events.add(event)
+            }
         }
 
         // BOSS事件

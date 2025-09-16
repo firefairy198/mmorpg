@@ -99,6 +99,53 @@ object PluginMain : KotlinPlugin(
         }
     }
 
+    object PetEffectCalculator {
+        // 计算队伍中所有宠物的效果加成
+        fun calculateTeamEffects(team: Team): TeamPetEffects {
+            val effects = TeamPetEffects()
+
+            team.members.forEach { member ->
+                val playerData = PlayerDataManager.getPlayerData(member.playerId)
+                PluginMain.logger.info("玩家 ${member.playerName} 的宠物: ${playerData?.pet?.specialEffect}")
+
+
+
+                playerData?.pet?.specialEffect?.let { effect ->
+                    when (effect) {
+                        PetEffect.WARRIOR -> effects.atkMultiplier += 0.33
+                        PetEffect.WARRIOR_S -> effects.atkMultiplier += 0.5
+                        PetEffect.ARCHER -> effects.luckMultiplier += 0.33
+                        PetEffect.ARCHER_S -> effects.luckMultiplier += 0.5
+                        PetEffect.THIEF -> effects.rewardMultiplier += 0.35
+                        PetEffect.THIEF_S -> effects.rewardMultiplier += 0.5
+                        PetEffect.PRIEST -> effects.positiveEventChance += 0.10
+                        PetEffect.PRIEST_S -> effects.positiveEventChance += 0.15
+                        PetEffect.TREASURE_HUNTER -> effects.equipmentDropChance += 0.1
+                        PetEffect.TREASURE_HUNTER_S -> {
+                            effects.equipmentDropChance += 0.1
+                            effects.additionalEvents += 1
+                        }
+                        PetEffect.BARD -> effects.bonusDungeonChance += 0.10
+                        PetEffect.BARD_S -> effects.bonusDungeonChance += 0.15
+                    }
+                }
+            }
+
+            return effects
+        }
+    }
+
+    // 队伍宠物效果数据类
+    data class TeamPetEffects(
+        var atkMultiplier: Double = 0.0,
+        var luckMultiplier: Double = 0.0,
+        var rewardMultiplier: Double = 0.0,
+        var positiveEventChance: Double = 0.0,
+        var equipmentDropChance: Double = 0.0,
+        var bonusDungeonChance: Double = 0.0,
+        var additionalEvents: Int = 0 // 新增：额外事件数量
+    )
+
     override fun onEnable() {
         logger.info("PK插件加载成功！")
 
@@ -187,6 +234,28 @@ object PluginMain : KotlinPlugin(
                                 PlayerDataManager.savePlayerData(playerData)
 
                                 group.sendMessage("兑换成功！获得500喵币！")
+                            }
+                        }
+
+                        "chongwuchongzhi" -> {
+                            // 检查是否已使用过此兑换码
+                            if (playerData.usedCodes.contains("chongwuchongzhi")) {
+                                group.sendMessage("您已经使用过这个兑换码了。")
+                            } else {
+                                // 添加兑换码到已使用列表
+                                playerData.usedCodes.add("chongwuchongzhi")
+
+                                // 增加属性
+                                playerData.baseATK = increaseAttributeWithLimit(playerData.baseATK, 50, playerData.rebirthCount)
+                                playerData.baseDEF = increaseAttributeWithLimit(playerData.baseDEF, 50, playerData.rebirthCount)
+
+                                // 增加喵币
+                                playerData.gold += 1999
+
+                                // 保存数据
+                                PlayerDataManager.savePlayerData(playerData)
+
+                                group.sendMessage("兑换成功！获得1999喵币和50全属！")
                             }
                         }
                         // 可以在这里添加更多兑换码
@@ -367,8 +436,9 @@ object PluginMain : KotlinPlugin(
                         "装备: ${it.name} (ATK+${it.atk}, DEF+${it.def}, LUCK+${it.luck})"
                     } ?: "装备: 无"
 
+                    // 使用修改后的formatPetInfo函数
                     val petInfo = playerData.pet?.let {
-                        "宠物: ${it.name} (${it.grade}级, ATK+${it.atk}, DEF+${it.def}, LUCK+${it.luck})"
+                        "宠物: ${formatPetInfo(it)}"
                     } ?: "宠物: 无"
 
                     val relicInfo = playerData.relic?.let {
@@ -405,6 +475,13 @@ object PluginMain : KotlinPlugin(
                         "装备等级: 无"
                     }
 
+                    // 添加S型宠物变更券信息
+                    val sPetChangeTicketInfo = if (playerData.sPetChangeTickets > 0) {
+                        "S型宠物辅助职业变更券: ${playerData.sPetChangeTickets}个"
+                    } else {
+                        "S型宠物辅助职业变更券: 无"
+                    }
+
                     group.sendMessage("""
                         ${sender.nameCardOrNick} 的信息:
                         ${attributeLimitInfo}
@@ -414,6 +491,7 @@ object PluginMain : KotlinPlugin(
                         LUCK: $finalLUCK (基础: ${playerData.baseLUCK})
                         喵币: ${playerData.gold}
                         ${ticketInfo}
+                        ${sPetChangeTicketInfo}
                         $equipmentInfo
                         $petInfo
                         $relicInfo
@@ -587,6 +665,8 @@ object PluginMain : KotlinPlugin(
                         +"• /找个对手 - 随机找一个对手进行PK（3小时冷却）\n"
                         +"• /我的信息 - 查看自己的属性、装备宠物遗物等信息\n"
                         +"• /商店 - 查看商店中出售的装备\n"
+                        +"• /道具商店 - 查看道具商店中出售的道具\n"
+                        +"• /使用 道具名称 - 使用道具\n"
                         +"• /转生 - 基础属性≥200可转生，获得宠物，基本属性-150\n"
                         +"• /获取遗物 - 消耗5次转生次数获取遗物\n"
                         +"• /喵币重置遗物 - 花费2000喵币重置遗物属性\n"
@@ -675,7 +755,6 @@ object PluginMain : KotlinPlugin(
                     if (remainingTime > 0) {
                         val minutes = remainingTime / 60000
                         val seconds = (remainingTime % 60000) / 1000
-                        group.sendMessage("副本冷却中，还需${minutes}分${seconds}秒")
                         return@subscribeAlways
                     }
 
@@ -728,7 +807,6 @@ object PluginMain : KotlinPlugin(
                     if (remainingTime > 0) {
                         val minutes = remainingTime / 60000
                         val seconds = (remainingTime % 60000) / 1000
-                        group.sendMessage("副本冷却中，还需${minutes}分${seconds}秒")
                         return@subscribeAlways
                     }
 
@@ -780,14 +858,44 @@ object PluginMain : KotlinPlugin(
                                 val successRate = (teamPower / dungeon.difficulty).coerceAtMost(1.0)
                                 "副本${dungeon.id}: ${dungeon.name} - 难度${dungeon.difficulty / 1000}K - 成功率约${"%.2f".format(successRate * 100)}%"
                             }
+                            // 获取队伍宠物效果列表
+                            val petEffects = mutableListOf<String>()
+                            updatedTeam.members.forEach { member ->
+                                val memberData = PlayerDataManager.getPlayerData(member.playerId)
+                                memberData?.pet?.specialEffect?.let { effect ->
+                                    val effectName = when (effect) {
+                                        PetEffect.WARRIOR -> "战士"
+                                        PetEffect.WARRIOR_S -> "战士S"
+                                        PetEffect.ARCHER -> "弓手"
+                                        PetEffect.ARCHER_S -> "弓手S"
+                                        PetEffect.THIEF -> "盗贼"
+                                        PetEffect.THIEF_S -> "盗贼S"
+                                        PetEffect.PRIEST -> "牧师"
+                                        PetEffect.PRIEST_S -> "牧师S"
+                                        PetEffect.TREASURE_HUNTER -> "宝藏猎手"
+                                        PetEffect.TREASURE_HUNTER_S -> "宝藏猎手S"
+                                        PetEffect.BARD -> "吟游诗人"
+                                        PetEffect.BARD_S -> "吟游诗人S"
+                                        else -> "未知"
+                                    }
+                                    petEffects.add(effectName)
+                                }
+                            }
 
+                            val petEffectsStr = if (petEffects.isNotEmpty()) {
+                                "宠物: ${petEffects.joinToString(",")}"
+                            } else {
+                                "宠物: 无"
+                            }
                             // 在队伍已满时@队长并发送消息
                             val captainId = team.captainId
                             val captainAt = At(captainId) // 创建@队长的消息组件
 
                             val message = captainAt +
                                 " 队伍已满！队伍总ATK: $totalATK, 总LUCK: $totalLUCK, 综合战力: $teamPower\n" +
-                                "请使用\"/选择副本 [1-5]\"命令选择副本。\n副本推荐:\n$dungeonRecommendations"
+                                "请使用\"/选择副本 [1-5]\"命令选择副本。\n" +
+                                "$petEffectsStr\n" +
+                                "(概率未计算宠物效果)\n$dungeonRecommendations"
 
                             group.sendMessage(message)
                         }
@@ -874,9 +982,13 @@ object PluginMain : KotlinPlugin(
 
                     // 使用 GlobalScope 启动协程处理副本攻略
                     GlobalScope.launch {
-                        // 计算队伍总战力和基础成功率
-                        val totalATK = team.members.sumOf { it.atk }
-                        val totalLUCK = team.members.sumOf { it.luck }
+
+                        // 计算队伍宠物效果
+                        val teamEffects = PetEffectCalculator.calculateTeamEffects(team)
+
+                        // 计算队伍总战力和基础成功率（应用宠物效果）
+                        val totalATK = (team.members.sumOf { it.atk } * (1 + teamEffects.atkMultiplier)).toInt()
+                        val totalLUCK = (team.members.sumOf { it.luck } * (1 + teamEffects.luckMultiplier)).toInt()
                         val teamPower = totalATK * 0.5 * totalLUCK
                         val baseSuccessRate = (teamPower / dungeon.difficulty).coerceAtMost(1.0)
 
@@ -884,9 +996,13 @@ object PluginMain : KotlinPlugin(
                         val memberNames = team.members.joinToString("，") { it.playerName }
                         group.sendMessage("$memberNames 开始攻略 ${dungeon.name}。")
 
-                        // 生成剧情事件
-                        val events = DungeonStoryGenerator.generateEvents(team, dungeon)
-
+                        // 生成剧情事件（应用宠物效果：增加正向事件概率和额外事件数量）
+                        val events = DungeonStoryGenerator.generateEvents(
+                            team,
+                            dungeon,
+                            teamEffects.positiveEventChance,
+                            teamEffects.additionalEvents // 传递额外事件数量
+                        )
                         // 发送前5个事件，每个间隔5秒
                         for (i in 0 until 5) {
                             delay(5000)
@@ -904,7 +1020,7 @@ object PluginMain : KotlinPlugin(
                         var totalExtraDEF = 0
 
                         // 排除BOSS事件，只计算前5个事件
-                        for (i in 0 until 5) {
+                        for (i in 0 until events.size - 1) { // events.size - 1 是为了排除BOSS事件
                             totalSuccessRateChange += events[i].successRateChange
                             totalExtraGold += events[i].extraGold
                             totalExtraATK += events[i].extraATK
@@ -920,18 +1036,19 @@ object PluginMain : KotlinPlugin(
                         val random = Random.nextDouble(0.0, 1.0)
                         val success = random <= finalSuccessRate
 
-                        // 计算基础奖励
-                        val baseReward = dungeon.reward * bonusMultiplier
+                        // 计算基础奖励（应用宠物效果：奖励加成）
+                        val rewardMultiplier = 1 + teamEffects.rewardMultiplier
+                        val baseReward = (dungeon.reward * bonusMultiplier * rewardMultiplier).toInt()
                         val actualReward = if (success) {
                             baseReward
                         } else {
                             (baseReward * 0.1).toInt().coerceAtLeast(1)
                         }
 
-                        // 计算额外奖励
-                        val bonusExtraGold = totalExtraGold * bonusMultiplier
-                        val bonusExtraATK = totalExtraATK * bonusMultiplier
-                        val bonusExtraDEF = totalExtraDEF * bonusMultiplier
+                        // 额外奖励也需要应用盗贼效果
+                        val bonusExtraGold = (totalExtraGold * bonusMultiplier * rewardMultiplier).toInt()
+                        val bonusExtraATK = (totalExtraATK * bonusMultiplier * rewardMultiplier).toInt()
+                        val bonusExtraDEF = (totalExtraDEF * bonusMultiplier * rewardMultiplier).toInt()
 
                         // 平分奖励
                         val rewardPerPerson = (actualReward + bonusExtraGold) / 4
@@ -992,11 +1109,10 @@ object PluginMain : KotlinPlugin(
                                 }
                             }
 
-                            // 决定是否触发奖励副本
                             val triggerBonusDungeon = if (allHaveTicket) {
                                 true // 全队有券，100%触发
                             } else {
-                                Random.nextDouble() < 0.05 // 否则5%概率触发
+                                Random.nextDouble() < (0.05 + teamEffects.bonusDungeonChance)
                             }
 
                             if (triggerBonusDungeon) {
@@ -1024,43 +1140,53 @@ object PluginMain : KotlinPlugin(
                                     dungeon.reward * 2
                                 )
 
-                                // 生成奖励副本事件
-                                val bonusEvents = DungeonStoryGenerator.generateBonusDungeonEvents(team, bonusDungeon)
+// 在奖励副本事件生成处传递牧师效果
+                                val bonusEvents = DungeonStoryGenerator.generateBonusDungeonEvents(
+                                    team,
+                                    bonusDungeon,
+                                    teamEffects.positiveEventChance // 传递牧师效果加成
+                                )
 
-                                // 发送前3个事件，每个间隔4秒
+// 发送前3个事件，每个间隔4秒
                                 for (i in 0 until 3) {
                                     delay(4000)
                                     group.sendMessage(bonusEvents[i].description)
                                 }
 
-                                // 发送BOSS事件
+// 发送BOSS事件
                                 delay(4000)
                                 group.sendMessage(bonusEvents[3].description)
 
-                                // 计算奖励副本的成功率
+// 在奖励副本计算前重新计算团队战力（考虑宠物效果）
+                                val bonusTotalATK = (team.members.sumOf { it.atk } * (1 + teamEffects.atkMultiplier)).toInt()
+                                val bonusTotalLUCK = (team.members.sumOf { it.luck } * (1 + teamEffects.luckMultiplier)).toInt()
+                                val bonusTeamPower = bonusTotalATK * 0.5 * bonusTotalLUCK
+
+// 计算奖励副本的成功率
                                 val bonusTotalSuccessRateChange = bonusEvents.take(3).sumOf { it.successRateChange }
-                                val bonusBaseSuccessRate = (teamPower / bonusDungeon.difficulty).coerceAtMost(1.0)
+                                val bonusBaseSuccessRate = (bonusTeamPower / bonusDungeon.difficulty).coerceAtMost(1.0)
                                 val bonusFinalSuccessRate = (bonusBaseSuccessRate + bonusTotalSuccessRateChange).coerceIn(0.0, 1.0)
                                 val bonusRandom = Random.nextDouble(0.0, 1.0)
                                 val bonusSuccess = bonusRandom <= bonusFinalSuccessRate
 
-                                // 计算奖励副本的奖励
-                                val bonusBaseReward = bonusDungeon.reward * bonusMultiplier
+// 计算奖励副本的奖励
+                                val bonusBaseReward = (bonusDungeon.reward * bonusMultiplier * rewardMultiplier).toInt()
+
                                 val bonusActualReward = if (bonusSuccess) {
                                     bonusBaseReward
                                 } else {
                                     (bonusBaseReward * 0.1).toInt().coerceAtLeast(1)
                                 }
 
-                                // 计算额外奖励
-                                val bonusTotalExtraGold = bonusEvents.take(3).sumOf { it.extraGold } * bonusMultiplier
-                                val bonusTotalExtraATK = bonusEvents.take(3).sumOf { it.extraATK } * bonusMultiplier
-                                val bonusTotalExtraDEF = bonusEvents.take(3).sumOf { it.extraDEF } * bonusMultiplier
+// 计算额外奖励（应用盗贼效果）
+                                val bonusTotalExtraGold = (bonusEvents.take(3).sumOf { it.extraGold } * bonusMultiplier * rewardMultiplier).toInt()
+                                val bonusTotalExtraATK = (bonusEvents.take(3).sumOf { it.extraATK } * bonusMultiplier * rewardMultiplier).toInt()
+                                val bonusTotalExtraDEF = (bonusEvents.take(3).sumOf { it.extraDEF } * bonusMultiplier * rewardMultiplier).toInt()
 
-                                // 平分奖励
+// 平分奖励
                                 val bonusRewardPerPerson = (bonusActualReward + bonusTotalExtraGold) / 4
 
-                                // 发送结果
+// 发送结果
                                 delay(5000)
 
                                 if (bonusSuccess) {
@@ -1070,13 +1196,14 @@ object PluginMain : KotlinPlugin(
                                     bonusRewardInfo.append("奖励副本攻略成功！每人获得${bonusRewardPerPerson}喵币。")
 
                                     if (bonusTotalExtraGold > 0) {
-                                        bonusRewardInfo.append("\n额外喵币奖励: +${bonusTotalExtraGold}喵币")
+                                        val extraGoldPerPerson = bonusTotalExtraGold / 4
+                                        bonusRewardInfo.append("\n额外喵币奖励: 每人+${extraGoldPerPerson}喵币")
                                     }
                                     if (bonusTotalExtraATK > 0) {
-                                        bonusRewardInfo.append("\n额外ATK奖励: +${bonusTotalExtraATK}点基础ATK")
+                                        bonusRewardInfo.append("\n额外ATK奖励: 每人+${bonusTotalExtraATK}点基础ATK")
                                     }
                                     if (bonusTotalExtraDEF > 0) {
-                                        bonusRewardInfo.append("\n额外DEF奖励: +${bonusTotalExtraDEF}点基础DEF")
+                                        bonusRewardInfo.append("\n额外DEF奖励: 每人+${bonusTotalExtraDEF}点基础DEF")
                                     }
 
                                     bonusRewardInfo.append("\n基础成功率: ${"%.1f".format(bonusBaseSuccessRate * 100)}%")
@@ -1091,8 +1218,10 @@ object PluginMain : KotlinPlugin(
                                     // 获取原始副本难度
                                     val originalDungeonId = bonusDungeon.id / 10
 
-                                    // 检查是否掉落装备 (15%概率)
-                                    val shouldDropEquipment = Random.nextDouble() < 0.15
+                                    // 检查是否掉落装备 (15%基础概率 + 宝藏猎手效果)
+                                    val dropChance = (0.15 + teamEffects.equipmentDropChance).coerceAtMost(1.0)
+                                    val shouldDropEquipment = Random.nextDouble() < dropChance
+
                                     if (shouldDropEquipment) {
                                         // 根据原始副本难度确定掉落装备
                                         val dropEquipment = when (originalDungeonId) {
@@ -1100,7 +1229,7 @@ object PluginMain : KotlinPlugin(
                                             4 -> Shop.getSpecialEquipmentByName("[SSR]天使权杖")
                                             5 -> Shop.getSpecialEquipmentByName("[UR]魔之宝珠")
                                             else -> null
-                                    }
+                                        }
 
                                         if (dropEquipment != null) {
                                             // 筛选可以接受该装备的玩家
@@ -1138,7 +1267,7 @@ object PluginMain : KotlinPlugin(
 
                                     val bonusFailInfo = StringBuilder()
                                     bonusFailInfo.append("奖励副本攻略失败。每人获得${bonusRewardPerPerson}喵币。")
-                                    bonusFailInfo.append("\n基础成功率: ${"%.1f".format(baseSuccessRate * 100)}%")
+                                    bonusFailInfo.append("\n基础成功率: ${"%.1f".format(bonusBaseSuccessRate * 100)}%")
                                     bonusFailInfo.append("\n事件调整: ${if (bonusTotalSuccessRateChange >= 0) "+" else ""}${"%.1f".format(bonusTotalSuccessRateChange * 100)}%")
                                     bonusFailInfo.append("\n最终成功率: ${"%.1f".format(bonusFinalSuccessRate * 100)}%")
 
@@ -1154,9 +1283,11 @@ object PluginMain : KotlinPlugin(
                                         // 奖励副本的奖励不占用每日次数，所有玩家都能获得
                                         memberData.gold += bonusRewardPerPerson
                                         if (bonusSuccess) {
-                                            // 改为全额奖励，每个队员获得全部额外属性
-                                            memberData.baseATK = increaseAttributeWithLimit(memberData.baseATK, bonusTotalExtraATK, memberData.rebirthCount)
-                                            memberData.baseDEF = increaseAttributeWithLimit(memberData.baseDEF, bonusTotalExtraDEF, memberData.rebirthCount)
+                                            // 奖励副本的属性奖励也应用盗贼效果
+                                            val bonusExtraATKWithBonus = (bonusTotalExtraATK * rewardMultiplier).toInt()
+                                            val bonusExtraDEFWithBonus = (bonusTotalExtraDEF * rewardMultiplier).toInt()
+                                            memberData.baseATK = increaseAttributeWithLimit(memberData.baseATK, bonusExtraATKWithBonus, memberData.rebirthCount)
+                                            memberData.baseDEF = increaseAttributeWithLimit(memberData.baseDEF, bonusExtraDEFWithBonus, memberData.rebirthCount)
                                         }
 
                                         PlayerDataManager.savePlayerData(memberData)
@@ -1194,8 +1325,11 @@ object PluginMain : KotlinPlugin(
                                     // 未达上限，正常获得奖励
                                     memberData.gold += rewardPerPerson
                                     if (success) {
-                                        memberData.baseATK = increaseAttributeWithLimit(memberData.baseATK, bonusExtraATK, memberData.rebirthCount)
-                                        memberData.baseDEF = increaseAttributeWithLimit(memberData.baseDEF, bonusExtraDEF, memberData.rebirthCount)
+                                        // 属性奖励也应用盗贼效果
+                                        val extraATKWithBonus = (bonusExtraATK * rewardMultiplier).toInt()
+                                        val extraDEFWithBonus = (bonusExtraDEF * rewardMultiplier).toInt()
+                                        memberData.baseATK = increaseAttributeWithLimit(memberData.baseATK, extraATKWithBonus, memberData.rebirthCount)
+                                        memberData.baseDEF = increaseAttributeWithLimit(memberData.baseDEF, extraDEFWithBonus, memberData.rebirthCount)
                                     }
                                     // 增加每日副本计数
                                     memberData.dailyDungeonCount += 1
@@ -1238,35 +1372,6 @@ object PluginMain : KotlinPlugin(
                             group.sendMessage("离开队伍失败。")
                         }
                     }
-                }
-
-                message == "/队伍信息" -> {
-                    // 检查当前群是否有队伍
-                    val team = TeamManager.getTeamByGroup(group.id)
-                    if (team == null) {
-                        group.sendMessage("当前群没有队伍。")
-                        return@subscribeAlways
-                    }
-
-                    val memberList = team.members.joinToString("\n") { member ->
-                        val memberData = PlayerDataManager.getPlayerData(member.playerId)
-                        val countInfo = if (memberData != null && memberData.dailyDungeonCount >= 10) {
-                            " (已达上限)"
-                        } else if (memberData != null) {
-                            " (${memberData.dailyDungeonCount}/10)"
-                        } else {
-                            ""
-                        }
-
-                        "${member.playerName} (ATK:${member.atk}, LUCK:${member.luck})$countInfo" +
-                            if (member.playerId == team.captainId) " [队长]" else ""
-                    }
-
-                    val timeLeft = (5 * 60 * 1000 - (System.currentTimeMillis() - team.createTime)) / 1000
-                    val minutes = timeLeft / 60
-                    val seconds = timeLeft % 60
-
-                    group.sendMessage("队伍信息（剩余时间: ${minutes}分${seconds}秒）:\n$memberList")
                 }
 
 
@@ -1423,6 +1528,7 @@ object PluginMain : KotlinPlugin(
                     group.sendMessage(UpdateLog.getFormattedLog())
                 }
 
+                // PluginMain.kt 中修改购买道具的处理逻辑
                 message.startsWith("/购买道具 ") -> {
                     // 检查玩家是否已注册
                     if (playerData == null) {
@@ -1439,17 +1545,85 @@ object PluginMain : KotlinPlugin(
                         group.sendMessage("喵币不足！需要${item.price}喵币，你只有${playerData.gold}喵币")
                     } else if (itemName == "隐藏副本进入券" && playerData.hiddenDungeonTickets >= item.maxStack) {
                         group.sendMessage("每个玩家最多只能持有${item.maxStack}个${itemName}")
+                    } else if (itemName == "S型宠物辅助职业变更券" && playerData.sPetChangeTickets >= item.maxStack) {
+                        group.sendMessage("每个玩家最多只能持有${item.maxStack}个${itemName}")
                     } else {
                         playerData.gold -= item.price
 
-                        // 特殊处理隐藏副本进入券
-                        if (itemName == "隐藏副本进入券") {
-                            playerData.hiddenDungeonTickets += 1
+                        // 特殊处理不同道具
+                        when (itemName) {
+                            "隐藏副本进入券" -> playerData.hiddenDungeonTickets += 1
+                            "S型宠物辅助职业变更券" -> playerData.sPetChangeTickets += 1
                         }
 
                         PlayerDataManager.savePlayerData(playerData)
                         group.sendMessage("购买成功！花费${item.price}喵币，获得1个${itemName}，剩余${playerData.gold}喵币")
                     }
+                }
+
+
+                message == "/使用 S型宠物辅助职业变更券" -> {
+                    // 检查玩家是否已注册
+                    if (playerData == null) {
+                        group.sendMessage("你还没有注册，请先使用\"/签到\"命令注册")
+                        return@subscribeAlways
+                    }
+
+                    // 检查玩家是否有宠物
+                    if (playerData.pet == null) {
+                        group.sendMessage("你没有宠物，无法使用宠物变更券")
+                        return@subscribeAlways
+                    }
+
+                    // 检查玩家是否有S型宠物变更券
+                    if (playerData.sPetChangeTickets < 1) {
+                        group.sendMessage("你没有S型宠物辅助职业变更券")
+                        return@subscribeAlways
+                    }
+
+                    // 定义可变更的S型职业列表
+                    val sClassEffects = listOf(
+                        PetEffect.THIEF_S,          // 盗贼S
+                        PetEffect.PRIEST_S,         // 牧师S
+                        PetEffect.TREASURE_HUNTER_S, // 宝藏猎手S
+                        PetEffect.BARD_S            // 吟游诗人S
+                    )
+
+                    // 随机选择一个S型职业
+                    val newEffect = sClassEffects.random()
+
+                    // 获取当前宠物信息
+                    val currentPet = playerData.pet!!
+
+                    // 创建新宠物（只变更职业，其他属性不变）
+                    val newPet = Pet(
+                        currentPet.name,
+                        currentPet.atk,
+                        currentPet.def,
+                        currentPet.luck,
+                        currentPet.grade,
+                        newEffect
+                    )
+
+                    // 更新宠物
+                    playerData.pet = newPet
+                    // 减少变更券数量
+                    playerData.sPetChangeTickets -= 1
+
+                    // 保存数据
+                    PlayerDataManager.savePlayerData(playerData)
+
+                    // 获取新职业的中文名称
+                    val newEffectName = when (newEffect) {
+                        PetEffect.THIEF_S -> "盗贼S"
+                        PetEffect.PRIEST_S -> "牧师S"
+                        PetEffect.TREASURE_HUNTER_S -> "宝藏猎手S"
+                        PetEffect.BARD_S -> "吟游诗人S"
+                        else -> "未知职业"
+                    }
+
+                    group.sendMessage("使用成功！宠物职业已变更为: $newEffectName\n" +
+                        "剩余S型宠物辅助职业变更券: ${playerData.sPetChangeTickets}")
                 }
 
                 message.startsWith("/购买 ") -> {
@@ -1597,15 +1771,42 @@ object PluginMain : KotlinPlugin(
             else -> listOf("小强", "老鼠", "蛆").random()
         }
 
-        return Pet(name, atk, def, luck, grade)
+
+        // 随机分配特殊效果
+        val allEffects = PetEffect.values()
+        val specialEffect = allEffects.random()
+
+
+        return Pet(name, atk, def, luck, grade, specialEffect)
     }
 
     // 格式化宠物信息
     private fun formatPetInfo(pet: Pet): String {
-        return "${pet.name}(${pet.grade}级)\n" +
-                "基础ATK+${pet.atk}\n" +
-                "基础DEF+${pet.def}\n" +
-                "基础LUCK+${pet.luck}"
+        // 获取特殊效果的中文名称
+        val effectName = when (pet.specialEffect) {
+            PetEffect.WARRIOR -> "战士"
+            PetEffect.WARRIOR_S -> "战士S"
+            PetEffect.ARCHER -> "弓手"
+            PetEffect.ARCHER_S -> "弓手S"
+            PetEffect.THIEF -> "盗贼"
+            PetEffect.THIEF_S -> "盗贼S"
+            PetEffect.PRIEST -> "牧师"
+            PetEffect.PRIEST_S -> "牧师S"
+            PetEffect.TREASURE_HUNTER -> "宝藏猎手"
+            PetEffect.TREASURE_HUNTER_S -> "宝藏猎手S"
+            PetEffect.BARD -> "吟游诗人"
+            PetEffect.BARD_S -> "吟游诗人S"
+            null -> ""
+        }
+
+        // 如果有特殊效果，在宠物名前显示
+        val petNameDisplay = if (effectName.isNotEmpty()) {
+            "[$effectName]${pet.name}"
+        } else {
+            pet.name
+        }
+
+        return "$petNameDisplay (${pet.grade}级, ATK+${pet.atk}, DEF+${pet.def}, LUCK+${pet.luck})"
     }
 
     private fun performPk(attacker: PlayerData, defender: PlayerData): PkResult {
