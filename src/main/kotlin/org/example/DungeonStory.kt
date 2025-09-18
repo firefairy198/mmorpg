@@ -50,24 +50,24 @@ object DungeonStoryGenerator {
         "驱散了周围的迷雾" to { playerName: String, dungeon: Dungeon ->
             DungeonEvent(playerName, "驱散了周围的迷雾", "↑",
                 "[✨] $playerName 驱散了迷雾，视野变得更加清晰",
-                successRateChange = 0.006)
+                successRateChange = 0.003)
         },
         "解锁了古老符文" to { playerName: String, dungeon: Dungeon ->
             DungeonEvent(playerName, "解锁了古老符文", "↑",
                 "[✨] $playerName 解锁了古老符文，感觉副本难度下降了",
                 successRateChange = 0.005)
         },
-        "唤醒了守护精灵" to { playerName: String, dungeon: Dungeon ->
-            val dungeonLevel = dungeon.id // 副本编号 1-5
-            DungeonEvent(playerName, "唤醒了守护精灵", "↑",
-                "[❤] $playerName 唤醒了守护精灵，感觉自身和队友变强了一丢丢",
+        "变成了猪" to { playerName: String, dungeon: Dungeon ->
+            val dungeonLevel = dungeon.id // 副本编号-难度1-5
+            DungeonEvent(playerName, "变成了猪", "↑",
+                "[❤] $playerName 遇到了加强茯苓，并把他变成了🐷，获得了一些属性",
                 extraATK = dungeonLevel,
                 extraDEF = dungeonLevel)
         },
         "遇到了魅魔" to { playerName: String, dungeon: Dungeon ->
             DungeonEvent(playerName, "遇到了魅魔", "↑",
                 "[✨] $playerName 遇到了魅魔，和队友一起超市了ta",
-                successRateChange = 0.008)
+                successRateChange = 0.004)
         },
         "解读了古代文字" to { playerName: String, dungeon: Dungeon ->
             DungeonEvent(playerName, "解读了古代文字", "↑",
@@ -81,52 +81,52 @@ object DungeonStoryGenerator {
         "看到了一个宝箱" to { playerName: String, dungeon: Dungeon ->
             DungeonEvent(playerName, "看到了一个宝箱", "↓",
                 "[☠] $playerName 看到了一个宝箱，但被它吞了进去",
-                successRateChange = -0.004)
+                successRateChange = -0.007)
         },
         "被史莱姆缠住了" to { playerName: String, dungeon: Dungeon ->
             DungeonEvent(playerName, "被史莱姆缠住了", "↓",
                 "[☠☠] $playerName 被史莱姆缠住了，行动受限",
-                successRateChange = -0.006)
+                successRateChange = -0.008)
         },
         "发现了古老典籍" to { playerName: String, dungeon: Dungeon ->
             DungeonEvent(playerName, "发现了古老典籍", "↓",
                 "[☠☠] $playerName 被名为《金**每》的古书吸引住了，浪费了时间",
-                successRateChange = -0.007)
+                successRateChange = -0.009)
         },
         "试图拆卸华丽陷阱" to { playerName: String, dungeon: Dungeon ->
             DungeonEvent(playerName, "试图拆卸华丽陷阱", "↓",
                 "[☠] $playerName 试图拆卸一个陷阱，随着一声巨响，希望人没事",
-                successRateChange = -0.005)
+                successRateChange = -0.007)
         },
         "向奇怪的神像祈祷" to { playerName: String, dungeon: Dungeon ->
             DungeonEvent(playerName, "向奇怪的神像祈祷", "↓",
                 "[☠☠☠] $playerName 向一个长满触手的神像祈祷，感觉有什么东西回应了…",
-                successRateChange = -0.008)
+                successRateChange = -0.01)
         },
         "跟魅魔跑了" to { playerName: String, dungeon: Dungeon ->
             DungeonEvent(playerName, "跟魅魔跑了", "↓",
                 "[☠☠☠] $playerName 被魅魔诱惑，暂时离开了队伍",
-                successRateChange = -0.009)
+                successRateChange = -0.011)
         },
         "开始吟唱爆裂魔法" to { playerName: String, dungeon: Dungeon ->
             DungeonEvent(playerName, "开始吟唱爆裂魔法", "↓",
                 "[☠☠] ‘比黑色更黑……Explosion!’$playerName 用魔法炸到了空气，然后瘫倒在地。",
-                successRateChange = -0.006)
+                successRateChange = -0.008)
         },
         "开始玩坎公骑冠剑" to { playerName: String, dungeon: Dungeon ->
             DungeonEvent(playerName, "开始玩坎公骑冠剑", "↓",
                 "[☠] $playerName 忽然想起刀还没出，连忙掏出手机打开了坎公骑",
-                successRateChange = -0.005)
+                successRateChange = -0.007)
         },
         "惊动了守卫" to { playerName: String, dungeon: Dungeon ->
             DungeonEvent(playerName, "惊动了守卫", "↓",
                 "[☠☠] $playerName 不小心惊动了守卫，增加了战斗难度",
-                successRateChange = -0.007)
+                successRateChange = -0.009)
         },
         "被黑暗气息侵蚀" to { playerName: String, dungeon: Dungeon ->
             DungeonEvent(playerName, "被黑暗气息侵蚀", "↓",
                 "[☠☠☠] $playerName 被黑暗气息侵蚀，状态下降",
-                successRateChange = -0.008)
+                successRateChange = -0.01)
         }
     )
 

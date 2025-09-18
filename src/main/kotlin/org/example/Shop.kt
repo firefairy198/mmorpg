@@ -28,8 +28,8 @@ object Shop {
 
     // 道具类商城
     val itemList = listOf(
-        Item("隐藏副本进入券", price = 999, maxStack = 1, description = "使用后确保隐藏副本的出现（需每人均持有1枚）"),
-        Item("S型宠物辅助职业变更券", price = 1999, maxStack = 10, description = "使用后可以将宠物职业变更为盗贼S、牧师S、宝藏猎手S、吟游诗人S中的随机一种")
+        Item("隐藏副本进入券", price = 2500, maxStack = 1, description = "使用后确保隐藏副本的出现（需每人均持有1枚）"),
+        Item("S型宠物辅助职业变更券", price = 2000, maxStack = 10, description = "使用后可以将宠物职业变更为盗贼S、牧师S、宝藏猎手S、吟游诗人S中的随机一种")
     )
 
     // 道具数据类

@@ -40,8 +40,8 @@ data class Pet(
 
 // 添加宠物特殊效果枚举
 enum class PetEffect {
-    WARRIOR,       // 战士：提升团队副本总ATK 10%
-    WARRIOR_S,     // 战士S：提升团队副本总ATK 20%
+    WARRIOR,       // 战士：提升团队副本总ATK 33%
+    WARRIOR_S,     // 战士S：提升团队副本总ATK 50%
     THIEF,         // 盗贼：提升团队副本总收益 25%
     THIEF_S,       // 盗贼S：提升团队副本总收益 25%
     ARCHER,        // 弓手：提升团队副本总LUCK 10%
