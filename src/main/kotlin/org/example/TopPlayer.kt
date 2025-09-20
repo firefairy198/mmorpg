@@ -19,9 +19,13 @@ data class TopPlayerRecord(
     val baseDEF: Int,   // 保留基础DEF用于显示
     val baseLUCK: Int,  // 保留基础LUCK用于显示
     val equipmentName: String?,
-    val equipmentATK: Int,
-    val equipmentDEF: Int,
-    val equipmentLUCK: Int,
+    val equipmentATK: Int,      // 强化后的ATK
+    val equipmentDEF: Int,      // 强化后的DEF
+    val equipmentLUCK: Int,     // 强化后的LUCK
+    val equipmentBaseATK: Int,  // 新增：装备基础ATK
+    val equipmentBaseDEF: Int,  // 新增：装备基础DEF
+    val equipmentBaseLUCK: Int, // 新增：装备基础LUCK
+    val enhanceLevel: Int = 0,  // 新增：强化等级
     val petName: String?,
     val petATK: Int,
     val petDEF: Int,
@@ -53,16 +57,20 @@ object TopPlayerManager {
     fun updateRecord(
         playerId: Long,
         playerName: String,
-        finalATK: Int,  // 最终ATK
-        finalDEF: Int,  // 最终DEF
-        finalLUCK: Int, // 最终LUCK
-        baseATK: Int,   // 基础ATK
-        baseDEF: Int,   // 基础DEF
-        baseLUCK: Int,  // 基础LUCK
+        finalATK: Int,
+        finalDEF: Int,
+        finalLUCK: Int,
+        baseATK: Int,
+        baseDEF: Int,
+        baseLUCK: Int,
         equipmentName: String?,
         equipmentATK: Int,
         equipmentDEF: Int,
         equipmentLUCK: Int,
+        equipmentBaseATK: Int,
+        equipmentBaseDEF: Int,
+        equipmentBaseLUCK: Int,
+        enhanceLevel: Int,
         petName: String?,
         petATK: Int,
         petDEF: Int,
@@ -79,12 +87,37 @@ object TopPlayerManager {
 
         val currentRecord = getRecord()
 
+        // 获取玩家数据以获取装备强化信息
+        val playerData = PlayerDataManager.getPlayerData(playerId)
+        val enhanceLevel = playerData?.equipment?.enhanceLevel ?: 0
+
+        // 计算装备的基础属性（从强化后的属性反推）
+        val baseEquipmentATK = if (enhanceLevel > 0) {
+            (equipmentATK / (1 + enhanceLevel * 0.1)).toInt()
+        } else {
+            equipmentATK
+        }
+
+        val baseEquipmentDEF = if (enhanceLevel > 0) {
+            (equipmentDEF / (1 + enhanceLevel * 0.1)).toInt()
+        } else {
+            equipmentDEF
+        }
+
+        val baseEquipmentLUCK = if (enhanceLevel > 0) {
+            (equipmentLUCK / (1 + enhanceLevel * 0.1)).toInt()
+        } else {
+            equipmentLUCK
+        }
+
         if (currentRecord == null || totalScore > currentRecord.totalScore) {
             val newRecord = TopPlayerRecord(
                 playerId, playerName, totalScore,
                 finalATK, finalDEF, finalLUCK,
                 baseATK, baseDEF, baseLUCK,
-                equipmentName, equipmentATK, equipmentDEF, equipmentLUCK,
+                equipmentName, equipmentATK, equipmentDEF, equipmentLUCK, // 使用强化后的属性
+                baseEquipmentATK, baseEquipmentDEF, baseEquipmentLUCK, // 存储基础属性
+                enhanceLevel, // 存储强化等级
                 petName, petATK, petDEF, petLUCK, petGrade, petEffect,
                 relicName, relicATK, relicDEF, relicLUCK, relicGrade
             )
@@ -128,7 +161,33 @@ object TopPlayerManager {
         // 装备信息
         builder.append("🗡️ 装备:\n")
         if (record.equipmentName != null) {
-            builder.append("  ${record.equipmentName} (ATK+${record.equipmentATK}, DEF+${record.equipmentDEF}, LUCK+${record.equipmentLUCK})\n")
+            // 显示装备强化等级
+            val equipmentNameWithEnhance = if (record.enhanceLevel > 0) {
+                "${record.equipmentName}+${record.enhanceLevel}"
+            } else {
+                record.equipmentName
+            }
+
+            // 计算强化加成
+            val enhanceBonusATK = record.equipmentATK - record.equipmentBaseATK
+            val enhanceBonusDEF = record.equipmentDEF - record.equipmentBaseDEF
+            val enhanceBonusLUCK = record.equipmentLUCK - record.equipmentBaseLUCK
+
+            builder.append("  $equipmentNameWithEnhance (ATK+${record.equipmentATK}")
+            if (record.enhanceLevel > 0) {
+                builder.append("(${record.equipmentBaseATK}+$enhanceBonusATK)")
+            }
+
+            builder.append(", DEF+${record.equipmentDEF}")
+            if (record.enhanceLevel > 0) {
+                builder.append("(${record.equipmentBaseDEF}+$enhanceBonusDEF)")
+            }
+
+            builder.append(", LUCK+${record.equipmentLUCK}")
+            if (record.enhanceLevel > 0) {
+                builder.append("(${record.equipmentBaseLUCK}+$enhanceBonusLUCK)")
+            }
+            builder.append(")\n")
         } else {
             builder.append("  无\n")
         }

@@ -81,6 +81,11 @@ object PlayerDataManager {
                     playerData.lastDungeonTime = System.currentTimeMillis() - 4 * 60 * 60 * 1000
                 }
 
+                if (playerData.enhanceFailCount == 0) {
+                    // 对于旧数据，初始化为0
+                    playerData.enhanceFailCount = 0
+                }
+
                 // 处理每日副本次数重置（兼容老版本）
                 val today = LocalDate.now().format(DateTimeFormatter.ISO_DATE)
 

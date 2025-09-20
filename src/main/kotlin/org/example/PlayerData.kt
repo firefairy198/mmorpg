@@ -24,7 +24,8 @@ data class PlayerData(
     // 新增兑换码使用记录字段
     var usedCodes: MutableSet<String> = mutableSetOf(), // 存储已使用的兑换码
     var hiddenDungeonTickets: Int = 0, // 隐藏副本进入券数量
-    var sPetChangeTickets: Int = 0 // 新增：S型宠物辅助职业变更券数量
+    var sPetChangeTickets: Int = 0, // 新增：S型宠物辅助职业变更券数量
+    var enhanceFailCount: Int = 0
 )
 
 // 新增宠物数据类
