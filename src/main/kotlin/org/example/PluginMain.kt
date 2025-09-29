@@ -17,6 +17,8 @@ import java.time.LocalDateTime
 import java.time.temporal.TemporalQueries.zoneId
 import kotlin.math.min
 import kotlin.time.Duration
+import net.mamoe.mirai.contact.Group
+import net.mamoe.mirai.contact.User
 
 object PluginMain : KotlinPlugin(
     JvmPluginDescription(
@@ -105,6 +107,7 @@ object PluginMain : KotlinPlugin(
         // 获取装备等级
         fun getEquipmentLevel(name: String): Int {
             return when {
+                name.contains("[MR]") -> 4
                 name.contains("[UR]") -> 3
                 name.contains("[SSR]") -> 2
                 name.contains("[SR]") -> 1
@@ -122,6 +125,7 @@ object PluginMain : KotlinPlugin(
     // 获取装备等级
     private fun getEquipmentLevel(equipmentName: String): Int {
         return when {
+            equipmentName.contains("[MR]") -> 4
             equipmentName.contains("[UR]") -> 3
             equipmentName.contains("[SSR]") -> 2
             equipmentName.contains("[SR]") -> 1
@@ -133,7 +137,7 @@ object PluginMain : KotlinPlugin(
         // 计算队伍中所有宠物的效果加成
         fun calculateTeamEffects(team: Team): TeamPetEffects {
             val effects = TeamPetEffects()
-            var hasNoPetMember = false // 检查是否有队员没有宠物
+            var hasNoPetMember = false
 
             team.members.forEach { member ->
                 val playerData = PlayerDataManager.getPlayerData(member.playerId)
@@ -150,17 +154,15 @@ object PluginMain : KotlinPlugin(
                         PetEffect.ARCHER -> effects.luckMultiplier += 0.34
                         PetEffect.ARCHER_S -> effects.luckMultiplier += 0.5
                         PetEffect.THIEF -> {
-                            // 修改：盗贼效果改为基础5%加成
                             effects.rewardMultiplier += 0.05
                             effects.equipmentDropChance += 0.05
                         }
                         PetEffect.THIEF_S -> {
-                            // 修改：盗贼S效果改为基础10%加成
                             effects.rewardMultiplier += 0.1
                             effects.equipmentDropChance += 0.05
                         }
                         PetEffect.PRIEST -> effects.positiveEventChance += 0.15
-                        PetEffect.PRIEST_S -> effects.positiveEventChance += 0.2
+                        PetEffect.PRIEST_S -> effects.positiveEventChance += 0.25
                         PetEffect.TREASURE_HUNTER -> effects.equipmentDropChance += 0.14
                         PetEffect.TREASURE_HUNTER_S -> {
                             effects.equipmentDropChance += 0.14
@@ -169,13 +171,12 @@ object PluginMain : KotlinPlugin(
                         PetEffect.BARD -> effects.bonusDungeonChance += 0.05
                         PetEffect.BARD_S -> {
                             // 诗人S效果：基础1%加成，实际计算在触发隐藏副本时进行
-                            effects.bonusDungeonChance = 0.05
+                            effects.bonusDungeonChance = 0.01
                         }
                     }
                 }
             }
 
-            // 添加萌新队伍BUFF
             if (hasNoPetMember) {
                 effects.bonusDungeonChance += 0.05
             }
@@ -204,19 +205,18 @@ object PluginMain : KotlinPlugin(
         // 启动定时任务检查队伍超时
         this.launch {
             while (isActive) {
-                delay(30 * 1000) // 每30秒检查一次
+                delay(30 * 1000)
                 TeamManager.checkExpiredTeams()
                 // 清理超时的转生和遗物重置确认请求
                 RebirthConfirmation.cleanupExpiredRequests()
                 RelicConfirmation.cleanupExpiredRequests()
 
-                // 检查世界BOSS是否需要每日重置 - 使用线程安全的方式
                 WorldBossManager.checkDailyReset()
             }
         }
 
         // 初始化世界BOSS
-        WorldBossManager.getBossInfo() // 这会触发重置检查
+        WorldBossManager.getBossInfo()
 
         WhitelistConfig.reload()
         logger.info("已启用的群: ${WhitelistConfig.enabledGroups}")
@@ -255,7 +255,7 @@ object PluginMain : KotlinPlugin(
                         return@subscribeAlways
                     }
 
-                    val code = message.substringAfter("/兑换码 ").trim().lowercase() // 转换为小写以忽略大小写
+                    val code = message.substringAfter("/兑换码 ").trim().lowercase() // 转换为小写
 
                     // 检查兑换码有效性
                     when (code) {
@@ -275,6 +275,25 @@ object PluginMain : KotlinPlugin(
                                 PlayerDataManager.savePlayerData(playerData)
 
                                 group.sendMessage("兑换成功！获得20双属！")
+                            }
+                        }
+                        "tuntuntun" -> {
+                            // 检查是否已使用过此兑换码
+                            if (playerData.usedCodes.contains("tuntuntun")) {
+                                group.sendMessage("您已经使用过这个兑换码了。")
+                            } else {
+                                // 添加兑换码到已使用列表
+                                playerData.usedCodes.add("tuntuntun")
+
+                                // 增加吞噬属性
+                                playerData.devouredATK += 15
+                                playerData.devouredDEF += 15
+                                playerData.devouredLUCK += 1
+
+                                // 保存数据
+                                PlayerDataManager.savePlayerData(playerData)
+
+                                group.sendMessage("兑换成功！吞噬属性增加：ATK+15, DEF+15, LUCK+1")
                             }
                         }
                         "geiwodianmiaobi" -> {
@@ -336,7 +355,7 @@ object PluginMain : KotlinPlugin(
                                 group.sendMessage("兑换成功！获得1999喵币和50全属！")
                             }
                         }
-                        // 可以在这里添加更多兑换码
+                        // 在这里添加更多兑换码
                         else -> {
                             group.sendMessage("无效的兑换码。")
                         }
@@ -368,7 +387,7 @@ object PluginMain : KotlinPlugin(
                         val hours = remainingTime / 3600000
                         val minutes = (remainingTime % 3600000) / 60000
                         val seconds = (remainingTime % 60000) / 1000
-                        group.sendMessage("你刚Battle过，萎了，再休息${hours}小时${minutes}分${seconds}秒吧~\n或者使用 /帮助 查看其他操作！")
+                        group.sendMessage("你刚Battle过，萎了，再休息${hours}小时${minutes}分${seconds}秒吧~\n或者使用'/帮助'查看其他操作！")
                         return@subscribeAlways
                     }
 
@@ -381,7 +400,7 @@ object PluginMain : KotlinPlugin(
                         // 给予睡眠补丁奖励
                         playerData.baseATK = increaseAttributeWithLimit(playerData.baseATK, 3, playerData.rebirthCount)
                         playerData.baseDEF = increaseAttributeWithLimit(playerData.baseDEF, 3, playerData.rebirthCount)
-                        sleepBonusMessage = "\n(已超过6小时未对战，获得睡眠补丁奖励：ATK+3, DEF+3)"
+                        sleepBonusMessage = "\n(已超过6小时未对战，获得睡眠补丁奖励：双属性+3)"
                     }
 
                     // 更新上次寻找对手的时间
@@ -415,7 +434,7 @@ object PluginMain : KotlinPlugin(
 
                     // 发送结果
                     if (pkResult.isDraw) {
-                        group.sendMessage("${sender.nameCardOrNick} 和 ${if (opponentId == 0L) "沙包NPC" else group.get(opponentId)?.nameCardOrNick} 打平了！双方各增加3点ATK和DEF$sleepBonusMessage")
+                        group.sendMessage("${sender.nameCardOrNick} 和 ${if (opponentId == 0L) "隔壁某人(非本群用户)" else group.get(opponentId)?.nameCardOrNick} 打平了！双方各增加3点ATK和DEF$sleepBonusMessage")
                     } else {
                         val winnerName = if (winner.qqId == senderId) sender.nameCardOrNick else group.get(winner.qqId)?.nameCardOrNick ?: "隔壁某人(非本群用户)"
                         val loserName = if (loser.qqId == senderId) sender.nameCardOrNick else group.get(loser.qqId)?.nameCardOrNick ?: "隔壁某人(非本群用户)"
@@ -501,25 +520,32 @@ object PluginMain : KotlinPlugin(
                         return@subscribeAlways
                     }
 
+                    // 创建局部不可变引用
+                    val currentPlayerData = playerData
+
                     // 计算动态属性上限
-                    val maxAttribute = 225 + 10 * playerData.rebirthCount
+                    val maxAttribute = 225 + 10 * currentPlayerData.rebirthCount
 
-                    val finalATK = playerData.baseATK +
-                        (playerData.equipment?.getEnhancedAtk() ?: 0) +  // 修改：使用强化后的ATK
-                        (playerData.pet?.atk ?: 0) +
-                        (playerData.relic?.atk ?: 0)
+                    // 计算最终属性（使用宠物的最终属性：基础属性 + 吞噬属性）
+                    val finalATK = currentPlayerData.baseATK +
+                        (currentPlayerData.equipment?.getEnhancedAtk() ?: 0) +
+                        ((currentPlayerData.pet?.atk ?: 0) + currentPlayerData.devouredATK) +
+                        (currentPlayerData.relic?.atk ?: 0) +
+                        currentPlayerData.relicAtkBonus  // 确保加上染色加成
 
-                    val finalDEF = playerData.baseDEF +
-                        (playerData.equipment?.getEnhancedDef() ?: 0) +  // 修改：使用强化后的DEF
-                        (playerData.pet?.def ?: 0) +
-                        (playerData.relic?.def ?: 0)
+                    val finalDEF = currentPlayerData.baseDEF +
+                        (currentPlayerData.equipment?.getEnhancedDef() ?: 0) +
+                        ((currentPlayerData.pet?.def ?: 0) + currentPlayerData.devouredDEF) +
+                        (currentPlayerData.relic?.def ?: 0) +
+                        currentPlayerData.relicDefBonus  // 确保加上染色加成
 
-                    val finalLUCK = playerData.baseLUCK +
-                        (playerData.equipment?.getEnhancedLuck() ?: 0) +  // 修改：使用强化后的LUCK
-                        (playerData.pet?.luck ?: 0) +
-                        (playerData.relic?.luck ?: 0)
+                    val finalLUCK = currentPlayerData.baseLUCK +
+                        (currentPlayerData.equipment?.getEnhancedLuck() ?: 0) +
+                        ((currentPlayerData.pet?.luck ?: 0) + currentPlayerData.devouredLUCK) +
+                        (currentPlayerData.relic?.luck ?: 0) +
+                        currentPlayerData.relicLuckBonus  // 确保加上染色加成
 
-                    val equipmentInfo = playerData.equipment?.let {
+                    val equipmentInfo = currentPlayerData.equipment?.let {
                         val enhancedAtk = it.getEnhancedAtk()
                         val enhancedDef = it.getEnhancedDef()
                         val enhancedLuck = it.getEnhancedLuck()
@@ -530,23 +556,37 @@ object PluginMain : KotlinPlugin(
                     } ?: "装备: 无"
 
                     // 使用修改后的formatPetInfo函数
-                    val petInfo = playerData.pet?.let {
-                        "宠物: ${formatPetInfo(it)}"
+                    val petInfo = currentPlayerData.pet?.let { pet ->
+                        // 格式化吞噬宠物记录
+                        val devouredPetsInfo = if (currentPlayerData.devouredPets.isNotEmpty()) {
+                            val petsList = currentPlayerData.devouredPets.entries.joinToString("") { (name, count) ->
+                                if (count > 1) "$name($count)" else name
+                            }
+                            "\n吞噬: $petsList（ATK=${currentPlayerData.devouredATK}，DEF=${currentPlayerData.devouredDEF}，LUCK=${currentPlayerData.devouredLUCK}）"
+                        } else {
+                            ""
+                        }
+
+                        "宠物: ${formatPetInfo(pet)}" + devouredPetsInfo
                     } ?: "宠物: 无"
 
-                    val relicInfo = playerData.relic?.let {
-                        "遗物: ${it.name} (${it.grade}级, ATK+${it.atk}, DEF+${it.def}, LUCK+${it.luck})"
+                    val relicInfo = currentPlayerData.relic?.let {
+                        val atkWithBonus = it.atk + currentPlayerData.relicAtkBonus
+                        val defWithBonus = it.def + currentPlayerData.relicDefBonus
+                        val luckWithBonus = it.luck + currentPlayerData.relicLuckBonus
+
+                        "遗物: ${it.name} (${it.grade}级, ATK+${it.atk}(+${currentPlayerData.relicAtkBonus}), DEF+${it.def}(+${currentPlayerData.relicDefBonus}), LUCK+${it.luck}(+${currentPlayerData.relicLuckBonus}))"
                     } ?: "遗物: 无"
 
                     // 添加道具信息
-                    val ticketInfo = if (playerData.hiddenDungeonTickets > 0) {
-                        "隐藏副本进入券: ${playerData.hiddenDungeonTickets}个"
+                    val ticketInfo = if (currentPlayerData.hiddenDungeonTickets > 0) {
+                        "隐藏副本进入券: ${currentPlayerData.hiddenDungeonTickets}个"
                     } else {
                         "隐藏副本进入券: 无"
                     }
 
-                    val rebirthInfo = if (playerData.rebirthCount > 0) {
-                        "转生次数: ${playerData.rebirthCount}"
+                    val rebirthInfo = if (currentPlayerData.rebirthCount > 0) {
+                        "转生次数: ${currentPlayerData.rebirthCount}"
                     } else {
                         ""
                     }
@@ -554,9 +594,10 @@ object PluginMain : KotlinPlugin(
                     // 添加属性上限信息
                     val attributeLimitInfo = "${maxAttribute}"
                     // 添加装备等级信息
-                    val equipmentLevelInfo = if (playerData.equipment != null) {
-                        val level = getEquipmentLevel(playerData.equipment!!.name)
+                    val equipmentLevelInfo = if (currentPlayerData.equipment != null) {
+                        val level = getEquipmentLevel(currentPlayerData.equipment!!.name)
                         val levelName = when (level) {
+                            4 -> "MR"
                             3 -> "UR"
                             2 -> "SSR"
                             1 -> "SR"
@@ -568,65 +609,63 @@ object PluginMain : KotlinPlugin(
                     }
 
                     // 添加S型宠物变更券信息
-                    val sPetChangeTicketInfo = if (playerData.sPetChangeTickets > 0) {
-                        "S型宠物辅助职业变更券: ${playerData.sPetChangeTickets}个"
+                    val sPetChangeTicketInfo = if (currentPlayerData.sPetChangeTickets > 0) {
+                        "S型宠物辅助职业变更券: ${currentPlayerData.sPetChangeTickets}个"
                     } else {
                         "S型宠物辅助职业变更券: 无"
                     }
 
-                    group.sendMessage("""
-                        ${sender.nameCardOrNick} 的信息:
-                        ATK: $finalATK (基础: ${playerData.baseATK} / ${attributeLimitInfo} )
-                        DEF: $finalDEF (基础: ${playerData.baseDEF} / ${attributeLimitInfo} )
-                        LUCK: $finalLUCK
-                        
-                        喵币: ${playerData.gold}
-                        $equipmentInfo
-                        $petInfo
-                        $relicInfo
-                        $rebirthInfo
-                        
-                        ${ticketInfo}
-                        ${sPetChangeTicketInfo}
-                        """.trimIndent())
+                    // 使用 buildString 构建消息
+                    val message = buildString {
+                        append("${sender.nameCardOrNick} 的信息:\n")
+                        append("ATK: $finalATK (基础: ${currentPlayerData.baseATK} / ${attributeLimitInfo} )\n")
+                        append("DEF: $finalDEF (基础: ${currentPlayerData.baseDEF} / ${attributeLimitInfo} )\n")
+                        append("LUCK: $finalLUCK\n\n")
+                        append("喵币: ${currentPlayerData.gold}\n")
+                        append("$equipmentInfo\n")
+                        append("$petInfo\n")
+                        append("$relicInfo\n")  // 遗物信息（包含染色加成）
+
+                        if (rebirthInfo.isNotEmpty()) {
+                            append("$rebirthInfo\n\n")
+                        } else {
+                            append("\n")
+                        }
+
+                        append("$ticketInfo\n")
+                        append("$sPetChangeTicketInfo\n")
+
+                        // 最后显示彩笔数量
+                        append("彩笔: 红×${currentPlayerData.redPenCount} 蓝×${currentPlayerData.bluePenCount} 黄×${currentPlayerData.yellowPenCount}")
+                    }
+
+                    group.sendMessage(message)
 
                     // 检查是否达到上限
-                    if (playerData.baseATK + 20 >= maxAttribute || playerData.baseDEF + 20 >= maxAttribute) {
-                        group.sendMessage("警告：你的基础属性即将达到上限，请记得转生！")
+                    if (currentPlayerData.baseATK + 20 >= maxAttribute || currentPlayerData.baseDEF + 20 >= maxAttribute) {
+                        group.sendMessage("Warn：你的基础属性即将达到上限，记得转生")
                     }
 
                     // 计算属性分数并更新全服楷模（使用最终属性）
                     val totalScore = finalATK + finalDEF + (finalLUCK * 5)
-                    val enhanceLevel = playerData.equipment?.enhanceLevel ?: 0
+                    val enhanceLevel = currentPlayerData.equipment?.enhanceLevel ?: 0
 
                     // 获取装备信息
-                    val equipmentName = playerData.equipment?.name
-                    val equipmentATK = playerData.equipment?.getEnhancedAtk() ?: 0  // 使用强化后的属性
-                    val equipmentDEF = playerData.equipment?.getEnhancedDef() ?: 0  // 使用强化后的属性
-                    val equipmentLUCK = playerData.equipment?.getEnhancedLuck() ?: 0  // 使用强化后的属性
-                    val equipmentBaseATK = if (enhanceLevel > 0) {
-                        (equipmentATK / (1 + enhanceLevel * 0.1)).toInt()
-                    } else {
-                        equipmentATK
-                    }
-                    val equipmentBaseDEF = if (enhanceLevel > 0) {
-                        (equipmentDEF / (1 + enhanceLevel * 0.1)).toInt()
-                    } else {
-                        equipmentDEF
-                    }
-                    val equipmentBaseLUCK = if (enhanceLevel > 0) {
-                        (equipmentLUCK / (1 + enhanceLevel * 0.1)).toInt()
-                    } else {
-                        equipmentLUCK
-                    }
+                    val equipmentName = currentPlayerData.equipment?.name
+                    val equipmentATK = currentPlayerData.equipment?.getEnhancedAtk() ?: 0
+                    val equipmentDEF = currentPlayerData.equipment?.getEnhancedDef() ?: 0
+                    val equipmentLUCK = currentPlayerData.equipment?.getEnhancedLuck() ?: 0
+                    val equipmentBaseATK = currentPlayerData.equipment?.atk ?: 0
+                    val equipmentBaseDEF = currentPlayerData.equipment?.def ?: 0
+                    val equipmentBaseLUCK = currentPlayerData.equipment?.luck ?: 0
 
                     // 获取宠物信息
-                    val petName = playerData.pet?.name
-                    val petATK = playerData.pet?.atk ?: 0
-                    val petDEF = playerData.pet?.def ?: 0
-                    val petLUCK = playerData.pet?.luck ?: 0
-                    val petGrade = playerData.pet?.grade
-                    val petEffect = playerData.pet?.specialEffect?.let { effect ->
+                    val petName = currentPlayerData.pet?.name
+                    val petATK = currentPlayerData.pet?.atk ?: 0
+                    val petDEF = currentPlayerData.pet?.def ?: 0
+                    val petLUCK = currentPlayerData.pet?.luck ?: 0
+                    val petGrade = currentPlayerData.pet?.grade
+                    val petEffect = currentPlayerData.pet?.specialEffect?.let { effect ->
                         when (effect) {
                             PetEffect.WARRIOR -> "战士"
                             PetEffect.WARRIOR_S -> "战士S"
@@ -645,11 +684,11 @@ object PluginMain : KotlinPlugin(
                     }
 
                     // 获取遗物信息
-                    val relicName = playerData.relic?.name
-                    val relicATK = playerData.relic?.atk ?: 0
-                    val relicDEF = playerData.relic?.def ?: 0
-                    val relicLUCK = playerData.relic?.luck ?: 0
-                    val relicGrade = playerData.relic?.grade
+                    val relicName = currentPlayerData.relic?.name
+                    val relicATK = currentPlayerData.relic?.atk ?: 0
+                    val relicDEF = currentPlayerData.relic?.def ?: 0
+                    val relicLUCK = currentPlayerData.relic?.luck ?: 0
+                    val relicGrade = currentPlayerData.relic?.grade
 
                     TopPlayerManager.updateRecord(
                         senderId,
@@ -657,9 +696,9 @@ object PluginMain : KotlinPlugin(
                         finalATK,
                         finalDEF,
                         finalLUCK,
-                        playerData.baseATK,
-                        playerData.baseDEF,
-                        playerData.baseLUCK,
+                        currentPlayerData.baseATK,
+                        currentPlayerData.baseDEF,
+                        currentPlayerData.baseLUCK,
                         equipmentName,
                         equipmentATK,
                         equipmentDEF,
@@ -678,7 +717,16 @@ object PluginMain : KotlinPlugin(
                         relicATK,
                         relicDEF,
                         relicLUCK,
-                        relicGrade
+                        relicGrade,
+                        // 传递染色加成属性（新增的参数）
+                        currentPlayerData.relicAtkBonus,
+                        currentPlayerData.relicDefBonus,
+                        currentPlayerData.relicLuckBonus,
+                        // 传递吞噬属性
+                        currentPlayerData.devouredATK,
+                        currentPlayerData.devouredDEF,
+                        currentPlayerData.devouredLUCK,
+                        currentPlayerData.devouredPets
                     )
                 }
 
@@ -726,14 +774,15 @@ object PluginMain : KotlinPlugin(
 
                     val itemList = Shop.itemList.joinToString("\n") { item ->
                         val itemNumber = when (item.name) {
-                            "隐藏副本进入券" -> "1"
-                            "S型宠物辅助职业变更券" -> "2"
+                            "S型宠物辅助职业变更券" -> "1"
+                            "鱼饵" -> "2"
+                            "炸鱼器" -> "3"
                             else -> ""
                         }
                         "${itemNumber}. ${item.name} - 价格: ${item.price}喵币 (${item.description})"
                     }
 
-                    group.sendMessage("道具商店:\n$itemList\n使用\"/购买道具 数字\"或\"/购买道具 道具名\"来购买道具\n例如: /购买道具 1 或 /购买道具 隐藏副本进入券")
+                    group.sendMessage("道具商店:\n$itemList\n使用\"/购买道具 数字\"或\"/购买道具 道具名\"来购买道具\n例如: /购买道具 1 或 /购买道具 S型宠物辅助职业变更券")
                 }
 
                 message == "/转生" -> {
@@ -808,20 +857,49 @@ object PluginMain : KotlinPlugin(
                     val pendingRebirth = RebirthConfirmation.getPendingRebirth(senderId)
                     if (pendingRebirth != null) {
                         val (playerData, newPet) = pendingRebirth
+                        val currentPlayerData = playerData // 创建不可变引用
 
                         if (message == "是") {
-                            // 更换宠物
-                            playerData.pet = newPet
-                            group.sendMessage("已更换为新宠物")
+                            // 更换宠物，吞噬原宠物
+                            val oldPet = currentPlayerData.pet!!
+                            val devouredATK = (oldPet.atk * 0.1).toInt()
+                            val devouredDEF = (oldPet.def * 0.1).toInt()
+                            val devouredLUCK = (oldPet.luck * 0.1).toInt()
+
+                            // 更新吞噬属性
+                            currentPlayerData.devouredATK += devouredATK
+                            currentPlayerData.devouredDEF += devouredDEF
+                            currentPlayerData.devouredLUCK += devouredLUCK
+
+                            // 更新吞噬宠物记录
+                            val petName = oldPet.name
+                            currentPlayerData.devouredPets[petName] = currentPlayerData.devouredPets.getOrDefault(petName, 0) + 1
+
+                            // 更换为新宠物
+                            currentPlayerData.pet = newPet
+                            group.sendMessage("已更换为新宠物，并吞噬了原宠物${petName}（ATK+$devouredATK, DEF+$devouredDEF, LUCK+$devouredLUCK）")
                         } else {
-                            // 保留原宠物，属性已扣除且不返还
-                            group.sendMessage("已取消宠物更换，属性已扣除")
+                            // 保留原宠物，吞噬新宠物
+                            val devouredATK = (newPet.atk * 0.1).toInt()
+                            val devouredDEF = (newPet.def * 0.1).toInt()
+                            val devouredLUCK = (newPet.luck * 0.1).toInt()
+
+                            // 更新吞噬属性
+                            currentPlayerData.devouredATK += devouredATK
+                            currentPlayerData.devouredDEF += devouredDEF
+                            currentPlayerData.devouredLUCK += devouredLUCK
+
+                            // 更新吞噬宠物记录
+                            val petName = newPet.name
+                            currentPlayerData.devouredPets[petName] = currentPlayerData.devouredPets.getOrDefault(petName, 0) + 1
+
+                            group.sendMessage("已保留原宠物，并吞噬了新宠物${petName}（ATK+$devouredATK, DEF+$devouredDEF, LUCK+$devouredLUCK）")
                         }
 
-                        PlayerDataManager.savePlayerData(playerData)
+                        PlayerDataManager.savePlayerData(currentPlayerData)
                         RebirthConfirmation.removePendingRebirth(senderId)
 
-                        group.sendMessage("转生成功！当前转生次数：${playerData.rebirthCount}")
+                        group.sendMessage("转生成功！当前转生次数：${currentPlayerData.rebirthCount}")
                     }
                 }
 
@@ -837,18 +915,25 @@ object PluginMain : KotlinPlugin(
                             append("• /查看启用群 - 查看所有启用的群\n\n")
                         }
                         +"⚔️ 帮助菜单 ⚔️\n\n"
-                        +"• /签到 - 注册并签到获得20-50喵币\n"
                         +"• /找个对手 - 随机找一个对手进行PK（3小时冷却）\n"
-                        +"• /我的信息(/wdxx) - 查看自己的属性、上传个人信息至服务器\n"
+                        +"• /我的信息(/wdxx) - 查看自己的属性、上传个人信息至榜一大哥\n"
                         +"• /商店 - 查看商店中出售的装备\n"
                         +"• /道具商店(/djsd) - 查看道具商店中出售的道具\n"
                         +"• /使用 道具名称 - 使用道具\n"
-                        +"• /世界BOSS - 查看世界BOSS信息\n"
+                        +"• /世界BOSS(/wb) - 查看世界BOSS信息\n"
                         +"• /出刀 - 对世界BOSS进行一次攻击\n"
                         +"• /转生 - 基础属性≥200可转生，获得宠物，基本属性-150\n"
                         +"• /获取遗物 - 消耗5次转生次数获取遗物\n"
                         +"• /喵币(属性)重置遗物 - 花费2500喵币(50双属性)重置遗物属性\n"
-                        +"• /组队(/zd;/加入;/离开队伍(/lkdw)) - 创建副本队伍（15min冷却，每日10次）\n\n"
+                        +"• /使用红(蓝黄)彩笔 - 使用一根对应颜色的彩笔为遗物染色\n"
+                        +"• /组队(/zd;/加入(/jr);/离开队伍(/lkdw)) - 创建/加入副本队伍（15min冷却）\n\n"
+                        +"• /创建鱼塘 [鱼塘名] - 创建自己的鱼塘\n"
+                        +"• /销毁鱼塘 - 鱼塘管理者销毁鱼塘\n"
+                        +"• /踢出鱼塘 [玩家ID(QQ号)] - 鱼塘管理者踢出玩家\n"
+                        +"• /加入鱼塘 [鱼塘名] - 加入其他玩家的鱼塘\n"
+                        +"• /查看鱼塘 - 查看自己加入的鱼塘状态\n"
+                        +"• /离开鱼塘 - 离开当前鱼塘\n"
+                        +"• /修建鱼塘 [金额] - 为当前鱼塘投资升级\n\n"
                         +"• /名人堂(/神人堂) - 查看通关难5/难5隐藏的玩家\n"
                         +"• /榜一大哥 - 查看后台战力值最高的玩家\n"
                         +"• /更新日志 查看最新版本的更新内容\n"
@@ -943,15 +1028,19 @@ object PluginMain : KotlinPlugin(
                     }
 
                     // 计算玩家最终属性
-                    val finalATK = playerData.baseATK +
-                        (playerData.equipment?.getEnhancedAtk() ?: 0) +  // 修改：使用强化后的ATK
-                        (playerData.pet?.atk ?: 0) +
-                        (playerData.relic?.atk ?: 0)
+                    val currentPlayerData = playerData
 
-                    val finalLUCK = playerData.baseLUCK +
-                        (playerData.equipment?.getEnhancedLuck() ?: 0) +  // 修改：使用强化后的LUCK
-                        (playerData.pet?.luck ?: 0) +
-                        (playerData.relic?.luck ?: 0)
+                    val finalATK = currentPlayerData.baseATK +
+                        (currentPlayerData.equipment?.getEnhancedAtk() ?: 0) +
+                        ((currentPlayerData.pet?.atk ?: 0) + currentPlayerData.devouredATK) +
+                        (currentPlayerData.relic?.atk ?: 0) +
+                        currentPlayerData.relicAtkBonus  // 确保加上染色加成
+
+                    val finalLUCK = currentPlayerData.baseLUCK +
+                        (currentPlayerData.equipment?.getEnhancedLuck() ?: 0) +
+                        ((currentPlayerData.pet?.luck ?: 0) + currentPlayerData.devouredLUCK) +
+                        (currentPlayerData.relic?.luck ?: 0) +
+                        currentPlayerData.relicLuckBonus  // 确保加上染色加成
 
                     // 获取宠物信息
                     val petInfo = if (playerData.pet != null) {
@@ -1029,15 +1118,18 @@ object PluginMain : KotlinPlugin(
                     }
 
                     // 计算玩家最终属性
-                    val finalATK = playerData.baseATK +
-                        (playerData.equipment?.getEnhancedAtk() ?: 0) +  // 修改：使用强化后的ATK
-                        (playerData.pet?.atk ?: 0) +
-                        (playerData.relic?.atk ?: 0)
+                    val currentPlayerData = playerData
+                    val finalATK = currentPlayerData.baseATK +
+                        (currentPlayerData.equipment?.getEnhancedAtk() ?: 0) +
+                        ((currentPlayerData.pet?.atk ?: 0) + currentPlayerData.devouredATK) +
+                        (currentPlayerData.relic?.atk ?: 0) +
+                        currentPlayerData.relicAtkBonus  // 确保加上染色加成
 
-                    val finalLUCK = playerData.baseLUCK +
-                        (playerData.equipment?.getEnhancedLuck() ?: 0) +  // 修改：使用强化后的LUCK
-                        (playerData.pet?.luck ?: 0) +
-                        (playerData.relic?.luck ?: 0)
+                    val finalLUCK = currentPlayerData.baseLUCK +
+                        (currentPlayerData.equipment?.getEnhancedLuck() ?: 0) +
+                        ((currentPlayerData.pet?.luck ?: 0) + currentPlayerData.devouredLUCK) +
+                        (currentPlayerData.relic?.luck ?: 0) +
+                        currentPlayerData.relicLuckBonus  // 确保加上染色加成
 
                     // 加入队伍
                     if (TeamManager.addMember(group.id, senderId, sender.nameCardOrNick, finalATK, finalLUCK)) {
@@ -1088,7 +1180,7 @@ object PluginMain : KotlinPlugin(
                             // 构建副本推荐信息
                             val dungeonRecommendations = DungeonManager.dungeons.joinToString("\n") { dungeon ->
                                 val successRate = (teamPower / dungeon.difficulty).coerceAtMost(1.0)
-                                "副本${dungeon.id}: ${dungeon.name} - 难度${dungeon.difficulty / 1000}K - 成功率约${"%.2f".format(successRate * 100)}%"
+                                "副本${dungeon.id}: ${dungeon.name} - 难度${dungeon.difficulty / 1000}K - 成功率${"%.2f".format(successRate * 100)}%"
                             }
                             // 获取队伍宠物效果列表
                             val petEffects = mutableListOf<String>()
@@ -1212,13 +1304,17 @@ object PluginMain : KotlinPlugin(
                             memberData.lastDungeonTime = System.currentTimeMillis()
                             // 确保清空旧字段（如果存在）
                             memberData.lastDungeonDate = null
+
+                            // 增加每日副本计数（前移到这里）
+                            memberData.dailyDungeonCount += 1
+
+
                             PlayerDataManager.savePlayerData(memberData)
                         }
                     }
 
                     // 使用 GlobalScope 启动协程处理副本攻略
                     GlobalScope.launch {
-
                         // 计算队伍宠物效果
                         val teamEffects = PetEffectCalculator.calculateTeamEffects(team)
 
@@ -1237,24 +1333,24 @@ object PluginMain : KotlinPlugin(
                             team,
                             dungeon,
                             teamEffects.positiveEventChance,
-                            teamEffects.additionalEvents // 传递额外事件数量
+                            teamEffects.additionalEvents
                         )
                         // 发送所有普通事件（不包括BOSS事件），但最多显示8个
-                        val regularEventsCount = min(events.size - 1, 5) // 最多显示8个普通事件
+                        val regularEventsCount = min(events.size - 1, 5)
                         for (i in 0 until regularEventsCount) {
-                            delay(5000)
+                            delay(4000)
                             group.sendMessage(events[i].description)
                         }
 
                         // 如果事件太多，添加提示
                         if (events.size - 1 > 5) {
-                            delay(5000)
+                            delay(4000)
                             group.sendMessage("...还有${events.size - 1 - 5}个事件未显示，但效果已生效")
                         }
 
                         // 发送BOSS事件
-                        delay(5000)
-                        group.sendMessage(events[events.size - 1].description) // BOSS事件是最后一个
+                        delay(4000)
+                        group.sendMessage(events[events.size - 1].description)
 
                         // 计算总奖励和成功率调整
                         var totalSuccessRateChange = 0.0
@@ -1263,7 +1359,7 @@ object PluginMain : KotlinPlugin(
                         var totalExtraDEF = 0
 
                         // 排除BOSS事件，只计算前5个事件
-                        for (i in 0 until events.size - 1) { // events.size - 1 是为了排除BOSS事件
+                        for (i in 0 until events.size - 1) {
                             totalSuccessRateChange += events[i].successRateChange
                             totalExtraGold += events[i].extraGold
                             totalExtraATK += events[i].extraATK
@@ -1298,11 +1394,10 @@ object PluginMain : KotlinPlugin(
                         val rewardPerPerson = (actualReward + bonusExtraGold) / 4
 
                         // 发送结果
-                        delay(5000)
+                        delay(4000)
 
                         // 添加周末狂欢提示
                         val weekendBonusMessage = getWeekendBonusMessage()
-
 
                         if (success) {
                             group.sendMessage("经过一番苦战，队伍终于击败了BOSS！$weekendBonusMessage")
@@ -1315,25 +1410,96 @@ object PluginMain : KotlinPlugin(
 
                             // 构建奖励信息
                             val rewardInfo = StringBuilder()
-                            rewardInfo.append("恭喜！攻略${dungeon.name}成功！每人获得${rewardPerPerson}喵币。")
 
-                            if (bonusExtraGold > 0) {
-                                rewardInfo.append("\n额外喵币奖励: +${bonusExtraGold}喵币")
+                            // 记录奖励消息
+                            val noRewardPlayers = mutableListOf<String>()
+                            var totalRewardGiven = 0 // 声明并初始化变量
+
+                            // 处理每个队员的奖励
+                            team.members.forEach { member ->
+                                val memberData = PlayerDataManager.getPlayerData(member.playerId)
+                                if (memberData != null) {
+                                    // 检查玩家今日副本次数是否已达上限
+                                    if (memberData.dailyDungeonCount <= 10) {
+                                        // 未达上限，正常获得喵币和属性奖励
+                                        memberData.gold += rewardPerPerson
+                                        if (success) {
+                                            // 属性奖励也应用盗贼效果
+                                            val extraATKWithBonus = (bonusExtraATK * finalRewardMultiplier).toInt()
+                                            val extraDEFWithBonus = (bonusExtraDEF * finalRewardMultiplier).toInt()
+                                            memberData.baseATK = increaseAttributeWithLimit(memberData.baseATK, extraATKWithBonus, memberData.rebirthCount)
+                                            memberData.baseDEF = increaseAttributeWithLimit(memberData.baseDEF, extraDEFWithBonus, memberData.rebirthCount)
+                                        }
+                                        totalRewardGiven++
+                                    } else {
+                                        // 已达上限，不获得喵币和属性奖励
+                                        noRewardPlayers.add(member.playerName)
+                                    }
+
+                                    // 难度6副本彩笔奖励（不受每日次数限制）
+                                    if (dungeon.id == 6) {
+                                        val randomValue = Random.nextDouble()
+                                        when {
+                                            randomValue < 0.45 -> memberData.redPenCount += 1
+                                            randomValue < 0.9 -> memberData.bluePenCount += 1
+                                            else -> memberData.yellowPenCount += 1
+                                        }
+                                    }
+
+                                    // 保存玩家数据
+                                    PlayerDataManager.savePlayerData(memberData)
+                                }
                             }
-                            if (bonusExtraATK > 0) {
-                                rewardInfo.append("\n额外ATK奖励: +${bonusExtraATK}点基础ATK")
+
+                            // 构建统一的奖励消息
+                            if (totalRewardGiven > 0) {
+                                rewardInfo.append("恭喜！攻略${dungeon.name}成功！")
+
+                                if (dungeon.id != 6) {
+                                    // 普通副本：显示每人获得多少喵币
+                                    rewardInfo.append("每人获得${rewardPerPerson}喵币。")
+                                } else {
+                                    // 难度6副本：显示总结信息
+                                    rewardInfo.append("每人获得${rewardPerPerson}喵币。")
+                                    if (bonusExtraATK > 0 || bonusExtraDEF > 0) {
+                                        rewardInfo.append("和属性奖励")
+                                    }
+                                    rewardInfo.append("。")
+                                }
+
+                                if (bonusExtraGold > 0) {
+                                    rewardInfo.append("\n额外喵币奖励: +${bonusExtraGold}喵币")
+                                }
+                                if (bonusExtraATK > 0) {
+                                    rewardInfo.append("\n额外ATK奖励: +${bonusExtraATK}点基础ATK")
+                                }
+                                if (bonusExtraDEF > 0) {
+                                    rewardInfo.append("\n额外DEF奖励: +${bonusExtraDEF}点基础DEF")
+                                }
                             }
-                            if (bonusExtraDEF > 0) {
-                                rewardInfo.append("\n额外DEF奖励: +${bonusExtraDEF}点基础DEF")
+                            //这里可以添加到达次数的提示
+                            if (noRewardPlayers.isNotEmpty()) {
+                                if (rewardInfo.isNotEmpty()) {
+                                    rewardInfo.append("")
+                                }
+                                rewardInfo.append("")
                             }
 
                             // 添加成功率信息
-                            rewardInfo.append("\n基础成功率: ${"%.1f".format(baseSuccessRate * 100)}%")
+                            if (rewardInfo.isNotEmpty()) {
+                                rewardInfo.append("\n")
+                            }
+                            rewardInfo.append("基础成功率: ${"%.1f".format(baseSuccessRate * 100)}%")
                             rewardInfo.append("\n事件调整: ${if (totalSuccessRateChange >= 0) "+" else ""}${"%.1f".format(totalSuccessRateChange * 100)}%")
                             rewardInfo.append("\n最终成功率: ${"%.1f".format(finalSuccessRate * 100)}%")
 
                             group.sendMessage(rewardInfo.toString())
 
+                            // 发送彩笔获得提示（仅限难度6副本）
+                            if (dungeon.id == 6) {
+                                delay(3000)
+                                group.sendMessage("🎨 通关难度6副本，每位队员获得随机颜色的彩笔！\n(使用'/wdxx'查看)")
+                            }
 
                             // 检查队伍中每个玩家的隐藏副本进入券数量
                             val teamTickets = mutableListOf<Int>()
@@ -1354,8 +1520,6 @@ object PluginMain : KotlinPlugin(
                             }
 
                             val bardSBonus = if (teamEffects.bonusDungeonChance > 0.0) {
-                                // 只要队伍中有任意诗人或诗人S宠物，就给予固定加成
-                                // 对于难度3副本：(3 + 1)^2 / 100 = 0.16
                                 val dungeonLevel = dungeon.id
                                 (dungeonLevel + 1) * (dungeonLevel + 1) / 100.0
                             } else {
@@ -1363,7 +1527,7 @@ object PluginMain : KotlinPlugin(
                             }
 
                             val triggerBonusDungeon = if (allHaveTicket) {
-                                true // 全队有券，100%触发
+                                true
                             } else {
                                 Random.nextDouble() < (0.05 + teamEffects.bonusDungeonChance + bardSBonus)
                             }
@@ -1387,7 +1551,7 @@ object PluginMain : KotlinPlugin(
 
                                 // 创建奖励副本 (难度x2，奖励x2)
                                 val bonusDungeon = Dungeon(
-                                    dungeon.id * 10, // 使用特殊ID标识奖励副本
+                                    dungeon.id * 10,
                                     "${dungeon.name}(奖励)",
                                     dungeon.difficulty * 2,
                                     dungeon.reward * 2
@@ -1397,7 +1561,7 @@ object PluginMain : KotlinPlugin(
                                 val bonusEvents = DungeonStoryGenerator.generateBonusDungeonEvents(
                                     team,
                                     bonusDungeon,
-                                    teamEffects.positiveEventChance // 传递牧师效果加成
+                                    teamEffects.positiveEventChance
                                 )
 
                                 // 发送前3个事件，每个间隔4秒
@@ -1442,7 +1606,7 @@ object PluginMain : KotlinPlugin(
                                 val bonusRewardPerPerson = (bonusActualReward + bonusTotalExtraGold) / 4
 
                                 // 发送结果
-                                delay(5000)
+                                delay(4000)
 
                                 if (bonusSuccess) {
                                     group.sendMessage("🌟 队伍成功通过了奖励副本！获得了丰厚的额外奖励！")
@@ -1483,6 +1647,7 @@ object PluginMain : KotlinPlugin(
                                             3 -> Shop.getSpecialEquipmentByName("[SR]王国圣剑")
                                             4 -> Shop.getSpecialEquipmentByName("[SSR]天使权杖")
                                             5 -> Shop.getSpecialEquipmentByName("[UR]魔之宝珠")
+                                            6 -> Shop.getSpecialEquipmentByName("[MR]诸神之怒")  // 新增难度6的MR装备
                                             else -> null
                                         }
 
@@ -1493,7 +1658,7 @@ object PluginMain : KotlinPlugin(
                                                 Pair(member, memberData)
                                             }.filter { it.second != null }.map { it.first to it.second!! }
 
-                                            // 筛选可以接受该装备的玩家
+                                            // 筛选可以接受该装备的玩家（这里会自动应用等级检查）
                                             val eligiblePlayers = updatedTeamMembers.filter { (member, playerData) ->
                                                 canPlayerGetEquipment(playerData, dropEquipment)
                                             }
@@ -1522,15 +1687,6 @@ object PluginMain : KotlinPlugin(
 
                                                 // 发送获得装备的消息
                                                 group.sendMessage("🎁 隐藏副本掉落！${luckyMember.playerName} 获得了 ${newEquipment.getDisplayName()}！")
-
-                                                // 记录日志以便调试
-                                                PluginMain.logger.info("玩家 ${luckyMember.playerName} (ID: ${luckyMember.playerId}) 获得了装备: ${newEquipment.getDisplayName()}")
-
-                                                // 再次验证装备是否成功保存
-                                                val verifiedData = PlayerDataManager.getPlayerData(luckyMember.playerId)
-                                                if (verifiedData?.equipment?.name != newEquipment.name) {
-                                                    PluginMain.logger.error("装备保存验证失败！玩家 ${luckyMember.playerName} 应获得装备 ${newEquipment.name}，但实际为 ${verifiedData?.equipment?.name}")
-                                                }
                                             } else {
                                                 group.sendMessage("💔 隐藏副本掉落了 ${dropEquipment.name}，但队伍中没有人符合条件。")
                                             }
@@ -1580,7 +1736,6 @@ object PluginMain : KotlinPlugin(
                             }
 
                         } else {
-
                             group.sendMessage("经过一番苦战，菜鸡们最终还是不敌BOSS……$weekendBonusMessage")
 
                             // 添加失败信息
@@ -1591,41 +1746,15 @@ object PluginMain : KotlinPlugin(
                             failInfo.append("\n最终成功率: ${"%.1f".format(finalSuccessRate * 100)}%")
 
                             group.sendMessage(failInfo.toString())
-                        }
 
-                        // 更新每个队员的喵币、属性和副本CD
-                        val noRewardPlayers = mutableListOf<String>() // 记录没有获得奖励的玩家
-                        val rewardMessages = mutableListOf<String>() // 记录奖励消息
-
-                        team.members.forEach { member ->
-                            val memberData = PlayerDataManager.getPlayerData(member.playerId)
-                            if (memberData != null) {
-                                // 检查玩家今日副本次数是否已达上限
-                                if (memberData.dailyDungeonCount < 10) {
-                                    // 未达上限，正常获得奖励
+                            // 失败情况下也要处理奖励（但不受每日次数限制，因为失败奖励较少）
+                            team.members.forEach { member ->
+                                val memberData = PlayerDataManager.getPlayerData(member.playerId)
+                                if (memberData != null) {
+                                    // 失败情况下获得较少的喵币奖励（不受每日次数限制）
                                     memberData.gold += rewardPerPerson
-                                    if (success) {
-                                        // 属性奖励也应用盗贼效果
-                                        val extraATKWithBonus = (bonusExtraATK * finalRewardMultiplier).toInt()
-                                        val extraDEFWithBonus = (bonusExtraDEF * finalRewardMultiplier).toInt()
-                                        memberData.baseATK = increaseAttributeWithLimit(memberData.baseATK, extraATKWithBonus, memberData.rebirthCount)
-                                        memberData.baseDEF = increaseAttributeWithLimit(memberData.baseDEF, extraDEFWithBonus, memberData.rebirthCount)
-                                    }
-                                    // 增加每日副本计数
-                                    memberData.dailyDungeonCount += 1
-
-                                    // 添加周末狂欢提示
-                                    val bonusInfo = if (isWeekendBonus) " (周末狂欢双倍奖励)" else ""
-                                    rewardMessages.add("${member.playerName} 获得${rewardPerPerson}喵币${if (success) "和属性奖励" else ""}$bonusInfo，今日副本次数: ${memberData.dailyDungeonCount}/10")
-                                } else {
-                                    // 已达上限，不获得普通副本奖励，但仍计入冷却时间
-                                    noRewardPlayers.add(member.playerName)
+                                    PlayerDataManager.savePlayerData(memberData)
                                 }
-
-                                // 注意：这里不再更新副本CD，因为已经在选择副本时更新过了
-                                // 确保清空旧字段（如果存在）
-                                memberData.lastDungeonDate = null
-                                PlayerDataManager.savePlayerData(memberData)
                             }
                         }
 
@@ -1674,7 +1803,7 @@ object PluginMain : KotlinPlugin(
                     }
 
                     val countMessage = if (playerData.dailyDungeonCount >= 10) {
-                        "今日参与次数: ${playerData.dailyDungeonCount}/10 (已达上限，可参与但无奖励)"
+                        "今日参与次数: ${playerData.dailyDungeonCount}/10 (已达上限)"
                     } else {
                         "今日参与次数: ${playerData.dailyDungeonCount}/10"
                     }
@@ -1811,8 +1940,9 @@ object PluginMain : KotlinPlugin(
                     }
                     val itemParam = message.substringAfter("/购买道具 ").trim()
                     val itemName = when (itemParam) {
-                        "1" -> "隐藏副本进入券"
-                        "2" -> "S型宠物辅助职业变更券"
+                        "1" -> "S型宠物辅助职业变更券"
+                        "2" -> "鱼饵"
+                        "3" -> "炸鱼器"
                         else -> itemParam
                     }
                     val item = Shop.getItemByName(itemName)
@@ -1821,21 +1951,33 @@ object PluginMain : KotlinPlugin(
                         group.sendMessage("没有找到名为\"$itemName\"的道具")
                     } else if (playerData.gold < item.price) {
                         group.sendMessage("喵币不足！需要${item.price}喵币，你只有${playerData.gold}喵币")
-                    } else if (itemName == "隐藏副本进入券" && playerData.hiddenDungeonTickets >= item.maxStack) {
-                        group.sendMessage("每个玩家最多只能持有${item.maxStack}个${itemName}")
                     } else if (itemName == "S型宠物辅助职业变更券" && playerData.sPetChangeTickets >= item.maxStack) {
-                        group.sendMessage("每个玩家最多只能持有${item.maxStack}个${itemName}")
+                        group.sendMessage("超过最大持有数量，请先使用一些")
+                    } else if (itemName == "鱼饵" && playerData.fishBaitCount >= item.maxStack) {
+                        group.sendMessage("超过最大持有数量，请先使用一些")
+                    } else if (itemName == "炸鱼器" && playerData.fishBombCount >= item.maxStack) {
+                        group.sendMessage("超过最大持有数量，请先使用")
                     } else {
                         playerData.gold -= item.price
 
                         // 特殊处理不同道具
                         when (itemName) {
-                            "隐藏副本进入券" -> playerData.hiddenDungeonTickets += 1
-                            "S型宠物辅助职业变更券" -> playerData.sPetChangeTickets += 1
+                            "S型宠物辅助职业变更券" -> playerData.sPetChangeTickets += 5
+                            "鱼饵" -> playerData.fishBaitCount += 5
+                            "炸鱼器" -> playerData.fishBombCount += 1
                         }
 
                         PlayerDataManager.savePlayerData(playerData)
-                        group.sendMessage("购买成功！花费${item.price}喵币，获得1个${itemName}，剩余${playerData.gold}喵币")
+
+                        // 根据购买的道具显示不同的成功消息
+                        val successMessage = when (itemName) {
+                            "S型宠物辅助职业变更券" -> "购买成功！获得5张S型宠物辅助职业变更券"
+                            "鱼饵" -> "购买成功！获得5个鱼饵"
+                            "炸鱼器" -> "购买成功！获得1个炸鱼器"
+                            else -> "购买成功！"
+                        }
+
+                        group.sendMessage("$successMessage\n花费${item.price}喵币，剩余${playerData.gold}喵币")
                     }
                 }
 
@@ -1884,7 +2026,7 @@ object PluginMain : KotlinPlugin(
                         // 重置失败计数
                         playerData.enhanceFailCount = 0
 
-                        group.sendMessage("强化成功！${equipment.getDisplayName()} 强化等级提升至+${equipment.enhanceLevel}")
+                        group.sendMessage("强化成功！${equipment.name} 强化等级提升至+${equipment.enhanceLevel}")
 
                         // 如果是保底成功，添加提示
                         if (isGuaranteedSuccess) {
@@ -1910,9 +2052,14 @@ object PluginMain : KotlinPlugin(
                     PlayerDataManager.savePlayerData(playerData)
                 }
 
-                message == "/世界BOSS" -> {
+                message == "/世界BOSS" || message == "/wb" -> {
                     val bossInfo = WorldBossManager.getBossInfo()
                     group.sendMessage(bossInfo)
+                }
+
+                message == "/查刀神" || message == "/cds" -> {
+                    val ranking = WorldBossManager.getDamageRanking()
+                    group.sendMessage(ranking)
                 }
 
                 message == "/出刀" -> {
@@ -1923,20 +2070,24 @@ object PluginMain : KotlinPlugin(
                     }
 
                     // 计算玩家最终属性
-                    val finalATK = playerData.baseATK +
-                        (playerData.equipment?.getEnhancedAtk() ?: 0) +
-                        (playerData.pet?.atk ?: 0) +
-                        (playerData.relic?.atk ?: 0)
+                    val currentPlayerData = playerData
+                    val finalATK = currentPlayerData.baseATK +
+                        (currentPlayerData.equipment?.getEnhancedAtk() ?: 0) +
+                        ((currentPlayerData.pet?.atk ?: 0) + currentPlayerData.devouredATK) +
+                        (currentPlayerData.relic?.atk ?: 0) +
+                        currentPlayerData.relicAtkBonus  // 确保加上染色加成
 
-                    val finalDEF = playerData.baseDEF +
-                        (playerData.equipment?.getEnhancedDef() ?: 0) +
-                        (playerData.pet?.def ?: 0) +
-                        (playerData.relic?.def ?: 0)
+                    val finalDEF = currentPlayerData.baseDEF +
+                        (currentPlayerData.equipment?.getEnhancedDef() ?: 0) +
+                        ((currentPlayerData.pet?.def ?: 0) + currentPlayerData.devouredDEF) +
+                        (currentPlayerData.relic?.def ?: 0) +
+                        currentPlayerData.relicDefBonus  // 确保加上染色加成
 
-                    val finalLUCK = playerData.baseLUCK +
-                        (playerData.equipment?.getEnhancedLuck() ?: 0) +
-                        (playerData.pet?.luck ?: 0) +
-                        (playerData.relic?.luck ?: 0)
+                    val finalLUCK = currentPlayerData.baseLUCK +
+                        (currentPlayerData.equipment?.getEnhancedLuck() ?: 0) +
+                        ((currentPlayerData.pet?.luck ?: 0) + currentPlayerData.devouredLUCK) +
+                        (currentPlayerData.relic?.luck ?: 0) +
+                        currentPlayerData.relicLuckBonus  // 确保加上染色加成
 
                     // 处理攻击
                     val result = WorldBossManager.handleAttack(senderId, sender.nameCardOrNick, finalATK, finalDEF, finalLUCK)
@@ -1994,10 +2145,22 @@ object PluginMain : KotlinPlugin(
                     group.sendMessage("已为 ${targetQQId} 增加 ${amount} 喵币，当前喵币: ${targetPlayerData.gold}")
                 }
 
+                message.startsWith("/使用红彩笔") -> {
+                    useColorPen(playerData, group, sender, "红")
+                }
+                message.startsWith("/使用蓝彩笔") -> {
+                    useColorPen(playerData, group, sender, "蓝")
+                }
+                message.startsWith("/使用黄彩笔") -> {
+                    useColorPen(playerData, group, sender, "黄")
+                }
+
                 message.startsWith("/使用 ") -> {
                     val itemParam = message.substringAfter("/使用 ").trim()
                     val itemName = when (itemParam) {
-                        "2" -> "S型宠物辅助职业变更券"
+                        "1" -> "S型宠物辅助职业变更券"
+                        "2" -> "鱼饵"
+                        "3" -> "炸鱼器"
                         else -> itemParam
                     }
 
@@ -2065,6 +2228,194 @@ object PluginMain : KotlinPlugin(
                             group.sendMessage("使用成功！宠物职业已变更为: $newEffectName\n" +
                                 "剩余S型宠物辅助职业变更券: ${playerData.sPetChangeTickets}")
                         }
+                        "鱼饵" -> {
+                            // 检查玩家是否有鱼饵
+                            if (playerData.fishBaitCount < 1) {
+                                group.sendMessage("你没有鱼饵，无法钓鱼！")
+                                return@subscribeAlways
+                            }
+
+                            // 检查每日使用次数
+                            if (playerData.dailyFishBaitUsed >= 10) {
+                                group.sendMessage("今天已经使用了10次鱼饵，请明天再来吧！")
+                                return@subscribeAlways
+                            }
+
+                            // 检查玩家是否在鱼塘中
+                            val playerRelation = FishingManager.loadPlayerPondRelation(senderId)
+                            val pondName = playerRelation.currentPondName
+
+                            if (pondName == null) {
+                                group.sendMessage("您还没有加入任何鱼塘！请先创建或加入一个鱼塘才能钓鱼。")
+                                return@subscribeAlways
+                            }
+
+                            // 使用鱼塘名称加载鱼塘数据（而不是群ID）
+                            val pond = FishingManager.loadFishPond(pondName)
+                            if (pond == null) {
+                                group.sendMessage("鱼塘不存在！")
+                                return@subscribeAlways
+                            }
+
+                            // 执行钓鱼（使用鱼塘等级）
+                            val result = FishingManager.goFishing(playerData, pond.level)
+
+                            // 消耗鱼饵并增加使用次数
+                            playerData.fishBaitCount -= 1
+                            playerData.dailyFishBaitUsed += 1
+
+                            // 根据钓鱼结果增加属性
+                            var attributeMessage = ""
+                            if (result.fish.stars >= 6) {
+                                // EX鱼：三项属性各增加
+                                val increase = result.fish.value
+                                playerData.baseATK = increaseAttributeWithLimit(playerData.baseATK, increase, playerData.rebirthCount)
+                                playerData.baseDEF = increaseAttributeWithLimit(playerData.baseDEF, increase, playerData.rebirthCount)
+                                playerData.baseLUCK = increaseAttributeWithLimit(playerData.baseLUCK, increase, playerData.rebirthCount)
+                                attributeMessage = "三项基础属性各+$increase"
+                            } else {
+                                // 普通鱼：根据烹饪方法增加对应属性
+                                val increase = result.fish.value
+                                when (result.cookingMethod) {
+                                    "清蒸" -> {
+                                        playerData.baseATK = increaseAttributeWithLimit(playerData.baseATK, increase, playerData.rebirthCount)
+                                        attributeMessage = "基础ATK+$increase"
+                                    }
+                                    "红烧" -> {
+                                        playerData.baseDEF = increaseAttributeWithLimit(playerData.baseDEF, increase, playerData.rebirthCount)
+                                        attributeMessage = "基础DEF+$increase"
+                                    }
+                                }
+                            }
+
+                            // 保存玩家数据
+                            PlayerDataManager.savePlayerData(playerData)
+
+                            // 构建完整的消息（包含钓鱼结果、属性奖励和使用次数）
+                            val completeMessage = buildString {
+                                append(result.message)
+                                append("\n")
+                                append(attributeMessage)
+                                append("\n今日已钓鱼次数: ${playerData.dailyFishBaitUsed}/10")
+                            }
+
+                            group.sendMessage(completeMessage)
+                        }
+
+                        "炸鱼器" -> {
+                            // 检查玩家是否有炸鱼器
+                            if (playerData.fishBombCount < 1) {
+                                group.sendMessage("你没有炸鱼器，无法使用！")
+                                return@subscribeAlways
+                            }
+
+                            // 检查今日钓鱼次数是否为0
+                            if (playerData.dailyFishBaitUsed > 0) {
+                                group.sendMessage("今日已经使用过鱼饵，无法使用炸鱼器！")
+                                return@subscribeAlways
+                            }
+
+                            // 检查玩家是否在鱼塘中
+                            val playerRelation = FishingManager.loadPlayerPondRelation(senderId)
+                            val pondName = playerRelation.currentPondName
+
+                            if (pondName == null) {
+                                group.sendMessage("您还没有加入任何鱼塘！请先创建或加入一个鱼塘才能使用炸鱼器。")
+                                return@subscribeAlways
+                            }
+
+                            val pond = FishingManager.loadFishPond(pondName)
+                            if (pond == null) {
+                                group.sendMessage("鱼塘不存在！")
+                                return@subscribeAlways
+                            }
+
+                            // 消耗炸鱼器
+                            playerData.fishBombCount -= 1
+
+                            // 执行10次钓鱼
+                            val fishingResults = mutableListOf<FishingResult>()
+                            var totalATKIncrease = 0
+                            var totalDEFIncrease = 0
+                            var totalLUCKIncrease = 0
+
+                            // 统计每种鱼的获得情况
+                            val fishCounts = mutableMapOf<String, Int>()
+
+                            repeat(10) {
+                                val result = FishingManager.goFishing(playerData, pond.level)
+                                fishingResults.add(result)
+
+                                // 统计鱼的数量
+                                val fishName = result.fish.name
+                                fishCounts[fishName] = fishCounts.getOrDefault(fishName, 0) + 1
+
+                                // 计算属性增加
+                                if (result.fish.stars >= 6) {
+                                    // EX鱼：三项属性各增加
+                                    val increase = result.fish.value
+                                    totalATKIncrease += increase
+                                    totalDEFIncrease += increase
+                                    totalLUCKIncrease += increase
+                                } else {
+                                    // 普通鱼：根据烹饪方法增加对应属性
+                                    val increase = result.fish.value
+                                    when (result.cookingMethod) {
+                                        "清蒸" -> totalATKIncrease += increase
+                                        "红烧" -> totalDEFIncrease += increase
+                                    }
+                                }
+                            }
+
+                            // 增加属性
+                            playerData.baseATK = increaseAttributeWithLimit(playerData.baseATK, totalATKIncrease, playerData.rebirthCount)
+                            playerData.baseDEF = increaseAttributeWithLimit(playerData.baseDEF, totalDEFIncrease, playerData.rebirthCount)
+                            playerData.baseLUCK = increaseAttributeWithLimit(playerData.baseLUCK, totalLUCKIncrease, playerData.rebirthCount)
+
+                            // 增加使用次数
+                            playerData.dailyFishBaitUsed += 10
+
+                            // 保存玩家数据
+                            PlayerDataManager.savePlayerData(playerData)
+
+                            // 构建炸鱼器使用结果消息 - 优化显示每条鱼的详细信息
+                            val bombMessage = buildString {
+                                append("💣 你使用了炸鱼器！\n")
+                                append("一次性获得了10条鱼：\n\n")
+
+                                // 显示每条鱼的详细信息（包括星级和烹饪方法）
+                                fishingResults.forEachIndexed { index, result ->
+                                    val starSymbols = "※".repeat(result.fish.stars)
+                                    val fishDisplayName = if (result.fish.stars >= 6) {
+                                        "[$starSymbols]${result.cookingMethod}${result.fish.name}"
+                                    } else {
+                                        "[$starSymbols]${result.cookingMethod}${result.fish.name}"
+                                    }
+
+                                    // 计算单条鱼的属性增加
+                                    val singleIncrease = if (result.fish.stars >= 6) {
+                                        "三项属性各+${result.fish.value}"
+                                    } else {
+                                        when (result.cookingMethod) {
+                                            "清蒸" -> "ATK+${result.fish.value}"
+                                            "红烧" -> "DEF+${result.fish.value}"
+                                            else -> ""
+                                        }
+                                    }
+
+                                    append("${index + 1}. $fishDisplayName ($singleIncrease)\n")
+                                }
+
+                                append("\n属性总增加：")
+                                if (totalATKIncrease > 0) append(" ATK+$totalATKIncrease")
+                                if (totalDEFIncrease > 0) append(" DEF+$totalDEFIncrease")
+                                if (totalLUCKIncrease > 0) append(" LUCK+$totalLUCKIncrease")
+
+                                append("\n\n今日已钓鱼次数: ${playerData.dailyFishBaitUsed}/10")
+                            }
+
+                            group.sendMessage(bombMessage)
+                        }
                         else -> {
                             group.sendMessage("无法使用该道具或道具不存在")
                         }
@@ -2106,6 +2457,275 @@ object PluginMain : KotlinPlugin(
                         group.sendMessage("购买成功！${refundMsg}实际花费${totalCost}喵币，剩余${playerData.gold}喵币")
                     }
                 }
+
+                // 添加鱼塘相关命令
+                message.startsWith("/创建鱼塘 ") -> {
+                    // 检查玩家是否已注册
+                    if (playerData == null) {
+                        group.sendMessage("你还没有注册，请先使用\"/签到\"命令注册")
+                        return@subscribeAlways
+                    }
+
+                    // 检查是否有遗物
+                    if (playerData.relic == null) {
+                        group.sendMessage("你还没有遗物，无法创建鱼塘")
+                        return@subscribeAlways
+                    }
+
+                    // 检查转生次数
+                    if (playerData.rebirthCount < 3) {
+                        group.sendMessage("创建鱼塘需要3次以上转生次数！")
+                        return@subscribeAlways
+                    }
+
+                    // 检查喵币是否足够
+                    if (playerData.gold < 5000) {
+                        group.sendMessage("创建鱼塘需要5000喵币，你只有${playerData.gold}喵币！")
+                        return@subscribeAlways
+                    }
+
+                    val pondName = message.substringAfter("/创建鱼塘 ").trim()
+
+                    if (pondName.isEmpty()) {
+                        group.sendMessage("请输入鱼塘名称！")
+                        return@subscribeAlways
+                    }
+
+                    // 检查鱼塘名称长度（8个汉字以内）
+                    if (pondName.length > 8) {
+                        group.sendMessage("鱼塘名称不能超过8个汉字！")
+                        return@subscribeAlways
+                    }
+
+                    // 检查鱼塘名称是否只包含中文、英文、数字和下划线
+                    val validNameRegex = Regex("^[\\u4e00-\\u9fa5a-zA-Z0-9_]+$")
+                    if (!validNameRegex.matches(pondName)) {
+                        group.sendMessage("鱼塘名称只能包含中文、英文、数字和下划线！")
+                        return@subscribeAlways
+                    }
+
+                    // 检查玩家是否已有鱼塘
+                    val playerRelation = FishingManager.loadPlayerPondRelation(senderId)
+                    if (playerRelation.currentPondName != null) {
+                        group.sendMessage("您已经加入了鱼塘，请先离开当前鱼塘再创建新鱼塘！")
+                        return@subscribeAlways
+                    }
+
+                    // 创建鱼塘
+                    val success = FishingManager.createFishPond(pondName, senderId)
+
+                    if (success) {
+                        // 扣除喵币
+                        playerData.gold -= 5000
+                        // 保存玩家数据
+                        PlayerDataManager.savePlayerData(playerData)
+
+                        group.sendMessage("鱼塘 \"$pondName\" 创建成功！消耗5000喵币，您已成为该鱼塘的管理者。")
+                    } else {
+                        group.sendMessage("鱼塘名称 \"$pondName\" 已存在，请换一个名称！")
+                    }
+                }
+
+                // 销毁鱼塘命令
+                message == "/销毁鱼塘" || message == "/摧毁鱼塘" -> {
+                    // 检查玩家是否已注册
+                    if (playerData == null) {
+                        group.sendMessage("你还没有注册，请先使用\"/签到\"命令注册")
+                        return@subscribeAlways
+                    }
+
+                    val playerRelation = FishingManager.loadPlayerPondRelation(senderId)
+                    val pondName = playerRelation.currentPondName
+
+                    if (pondName == null) {
+                        group.sendMessage("您还没有加入任何鱼塘！")
+                        return@subscribeAlways
+                    }
+
+                    // 检查是否是管理者
+                    val pond = FishingManager.loadFishPond(pondName)
+                    if (pond?.managerId != senderId) {
+                        group.sendMessage("只有鱼塘管理者才能销毁鱼塘！")
+                        return@subscribeAlways
+                    }
+
+                    // 销毁鱼塘
+                    val success = FishingManager.destroyFishPond(pondName, senderId)
+
+                    if (success) {
+                        group.sendMessage("鱼塘 \"$pondName\" 已成功销毁！")
+                    } else {
+                        group.sendMessage("销毁鱼塘失败，请稍后再试！")
+                    }
+                }
+
+                // 加入鱼塘命令
+                message.startsWith("/加入鱼塘 ") -> {
+                    // 检查玩家是否已注册
+                    if (playerData == null) {
+                        group.sendMessage("你还没有注册，请先使用\"/签到\"命令注册")
+                        return@subscribeAlways
+                    }
+
+                    // 检查是否有遗物
+                    if (playerData.relic == null) {
+                        group.sendMessage("你还没有遗物，无法加入鱼塘")
+                        return@subscribeAlways
+                    }
+
+                    // 检查转生次数
+                    if (playerData.rebirthCount < 3) {
+                        group.sendMessage("加入鱼塘需要3次以上转生次数！")
+                        return@subscribeAlways
+                    }
+
+                    val pondName = message.substringAfter("/加入鱼塘 ").trim()
+
+                    if (pondName.isEmpty()) {
+                        group.sendMessage("请输入鱼塘名称！")
+                        return@subscribeAlways
+                    }
+
+                    // 检查玩家是否已有鱼塘
+                    val playerRelation = FishingManager.loadPlayerPondRelation(senderId)
+                    if (playerRelation.currentPondName != null) {
+                        group.sendMessage("您已经加入了鱼塘，请先离开当前鱼塘再加入新鱼塘！")
+                        return@subscribeAlways
+                    }
+
+                    // 加入鱼塘
+                    val success = FishingManager.joinFishPond(pondName, senderId)
+
+                    if (success) {
+                        group.sendMessage("成功加入鱼塘 \"$pondName\"！")
+                    } else {
+                        group.sendMessage("加入鱼塘失败！可能鱼塘不存在、已满员或您已在鱼塘中。")
+                    }
+                }
+
+                // 离开鱼塘命令
+                message == "/离开鱼塘" -> {
+                    // 检查玩家是否已注册
+                    if (playerData == null) {
+                        group.sendMessage("你还没有注册，请先使用\"/签到\"命令注册")
+                        return@subscribeAlways
+                    }
+
+                    val success = FishingManager.leaveFishPond(senderId)
+
+                    if (success) {
+                        group.sendMessage("已成功离开当前鱼塘！")
+                    } else {
+                        group.sendMessage("离开鱼塘失败！您可能没有加入任何鱼塘或是鱼塘管理者。")
+                    }
+                }
+
+                // 踢出玩家命令
+                message.startsWith("/踢出鱼塘 ") -> {
+                    // 检查玩家是否已注册
+                    if (playerData == null) {
+                        group.sendMessage("你还没有注册，请先使用\"/签到\"命令注册")
+                        return@subscribeAlways
+                    }
+
+                    val targetPlayerIdStr = message.substringAfter("/离开鱼塘 ").trim()
+                    val targetPlayerId = targetPlayerIdStr.toLongOrNull()
+
+                    if (targetPlayerId == null) {
+                        group.sendMessage("请输入有效的玩家ID！")
+                        return@subscribeAlways
+                    }
+
+                    val playerRelation = FishingManager.loadPlayerPondRelation(senderId)
+                    val pondName = playerRelation.currentPondName
+
+                    if (pondName == null) {
+                        group.sendMessage("您还没有加入任何鱼塘！")
+                        return@subscribeAlways
+                    }
+
+                    // 检查是否是管理者
+                    val pond = FishingManager.loadFishPond(pondName)
+                    if (pond?.managerId != senderId) {
+                        group.sendMessage("只有鱼塘管理者才能踢出玩家！")
+                        return@subscribeAlways
+                    }
+
+                    // 踢出玩家
+                    val success = FishingManager.kickPlayerFromPond(pondName, senderId, targetPlayerId)
+
+                    if (success) {
+                        group.sendMessage("已成功将玩家 $targetPlayerId 踢出鱼塘！")
+                    } else {
+                        group.sendMessage("踢出玩家失败！可能玩家不在鱼塘中或是您不能踢出自己。")
+                    }
+                }
+
+                // 查看鱼塘命令
+                message == "/查看鱼塘" || message == "/ckyt" -> {
+                    // 检查玩家是否已注册
+                    if (playerData == null) {
+                        group.sendMessage("你还没有注册，请先使用\"/签到\"命令注册")
+                        return@subscribeAlways
+                    }
+
+                    val pondInfo = FishingManager.getFishPondInfo(senderId)
+                    group.sendMessage(pondInfo)
+                }
+
+                // 修改修建鱼塘命令
+                message.startsWith("/修建鱼塘 ") || message.startsWith("/xjyt ") -> {
+                    // 检查玩家是否已注册
+                    if (playerData == null) {
+                        group.sendMessage("你还没有注册，请先使用\"/签到\"命令注册")
+                        return@subscribeAlways
+                    }
+
+                    // 检查是否有遗物
+                    if (playerData.relic == null) {
+                        group.sendMessage("你还没有遗物，无法修建")
+                        return@subscribeAlways
+                    }
+
+                    // 检查转生次数
+                    if (playerData.rebirthCount < 3) {
+                        group.sendMessage("修建鱼塘需要3次以上转生次数！")
+                        return@subscribeAlways
+                    }
+
+                    val amountStr = if (message.startsWith("/修建鱼塘 ")) {
+                        message.substringAfter("/修建鱼塘 ").trim()
+                    } else {
+                        message.substringAfter("/xjyt ").trim()
+                    }
+
+                    val amount = amountStr.toIntOrNull()
+                    if (amount == null || amount <= 0) {
+                        group.sendMessage("请输入有效的金额！")
+                        return@subscribeAlways
+                    }
+
+                    // 检查玩家是否在鱼塘中
+                    val playerRelation = FishingManager.loadPlayerPondRelation(senderId)
+                    val pondName = playerRelation.currentPondName
+
+                    if (pondName == null) {
+                        group.sendMessage("您还没有加入任何鱼塘！请先创建或加入一个鱼塘。")
+                        return@subscribeAlways
+                    }
+
+                    // 使用新的升级逻辑
+                    val upgradeResult = FishingManager.upgradeFishPond(playerData, pondName, amount)
+
+                    if (upgradeResult.success) {
+                        group.sendMessage(upgradeResult.message)
+                    } else {
+                        group.sendMessage(upgradeResult.message)
+                    }
+
+                    // 保存玩家数据
+                    PlayerDataManager.savePlayerData(playerData)
+                }
             }
         }
     }
@@ -2126,14 +2746,83 @@ object PluginMain : KotlinPlugin(
 
     // 属性增加时检查上限
     private fun increaseAttributeWithLimit(currentValue: Int, increase: Int, rebirthCount: Int): Int {
-        // 计算动态上限：225 + 10 * 转生次数
         val maxValue = 225 + 10 * rebirthCount
-        val newValue = currentValue + increase
-        return if (newValue > maxValue) {
+
+        // 添加日志记录
+        PluginMain.logger.debug("属性增加: 当前值=$currentValue, 增加=$increase, 上限=$maxValue")
+
+        // 如果当前值已经超过上限，先将其设置为上限值
+        val normalizedCurrent = if (currentValue > maxValue) {
+            PluginMain.logger.warning("属性异常: 当前值($currentValue)超过上限($maxValue)，已重置为上限值")
             maxValue
         } else {
+            currentValue
+        }
+
+        val newValue = normalizedCurrent + increase
+        return if (newValue > maxValue) {
+            PluginMain.logger.debug("属性增加后超过上限，设置为上限值: $maxValue")
+            maxValue
+        } else {
+            PluginMain.logger.debug("属性增加后未超过上限，新值: $newValue")
             newValue
         }
+    }
+
+    // 在 PluginMain.kt 中添加彩笔使用函数
+    private suspend fun useColorPen(playerData: PlayerData?, group: Group, sender: User, color: String) {
+        if (playerData == null) {
+            group.sendMessage("你还没有注册，请先使用\"/签到\"命令注册")
+            return
+        }
+
+        // 检查是否有遗物
+        if (playerData.relic == null) {
+            group.sendMessage("你还没有遗物，无法使用彩笔！")
+            return
+        }
+
+        when (color) {
+            "红" -> {
+                if (playerData.redPenCount < 1) {
+                    group.sendMessage("你没有红彩笔！")
+                    return
+                }
+                playerData.redPenCount -= 1
+                val multiplier = Random.nextDouble(1.0, 2.0)
+                val newBonus = (playerData.relic!!.atk * multiplier).toInt() - playerData.relic!!.atk
+                playerData.relicAtkBonus = newBonus
+                group.sendMessage("使用红彩笔成功！遗物攻击属性加成变为：+$newBonus")
+            }
+            "蓝" -> {
+                if (playerData.bluePenCount < 1) {
+                    group.sendMessage("你没有蓝彩笔！")
+                    return
+                }
+                playerData.bluePenCount -= 1
+                val multiplier = Random.nextDouble(1.0, 2.0)
+                val newBonus = (playerData.relic!!.def * multiplier).toInt() - playerData.relic!!.def
+                playerData.relicDefBonus = newBonus
+                group.sendMessage("使用蓝彩笔成功！遗物防御属性加成变为：+$newBonus")
+            }
+            "黄" -> {
+                if (playerData.yellowPenCount < 1) {
+                    group.sendMessage("你没有黄彩笔！")
+                    return
+                }
+                playerData.yellowPenCount -= 1
+                val multiplier = Random.nextDouble(1.0, 2.0)
+                val newBonus = (playerData.relic!!.luck * multiplier).toInt() - playerData.relic!!.luck
+                playerData.relicLuckBonus = newBonus
+                group.sendMessage("使用黄彩笔成功！遗物幸运属性加成变为：+$newBonus")
+            }
+            else -> {
+                group.sendMessage("未知的彩笔颜色！")
+                return
+            }
+        }
+
+        PlayerDataManager.savePlayerData(playerData)
     }
 
 
@@ -2179,8 +2868,8 @@ object PluginMain : KotlinPlugin(
     // 在 PluginMain 中添加遗物确认管理器
     object RelicConfirmation {
         private val pendingRelicReset: MutableMap<Long, Triple<PlayerData, Relic, String>> = mutableMapOf()
-        private val pendingTimes: MutableMap<Long, Long> = mutableMapOf() // 记录请求时间
-        private const val TIMEOUT_MS = 2 * 60 * 1000 // 5分钟超时
+        private val pendingTimes: MutableMap<Long, Long> = mutableMapOf()
+        private const val TIMEOUT_MS = 2 * 60 * 1000
 
         fun addPendingReset(userId: Long, playerData: PlayerData, newRelic: Relic, resetType: String) {
             pendingRelicReset[userId] = Triple(playerData, newRelic, resetType)
@@ -2300,8 +2989,6 @@ object PluginMain : KotlinPlugin(
             (defender.pet?.luck ?: 0) +
             (defender.relic?.luck ?: 0)
 
-        // 计算攻击力和防御力（考虑幸运值影响）
-        // 修改随机数范围：[LUCK-9, 2*LUCK-15]
         val attackerRandom = Random.nextInt(
             (attackerFinalLUCK - 9).coerceAtLeast(1),
             (2 * attackerFinalLUCK - 15 + 1).coerceAtLeast(2) // +1 因为 Random.nextInt 不包含上限
@@ -2314,7 +3001,7 @@ object PluginMain : KotlinPlugin(
         val attackerPower = attackerFinalATK * attackerRandom
         val defenderPower = defenderFinalDEF * defenderRandom
 
-        // 检查是否触发暴击 - 修改暴击判定条件为 ≥11
+        // 检查是否触发暴击
         var criticalHit = false
         var criticalPlayerId: Long? = null
         var criticalEquipment: String? = null
@@ -2336,9 +3023,20 @@ object PluginMain : KotlinPlugin(
             // 攻击方胜利
             attacker.baseATK = increaseAttributeWithLimit(attacker.baseATK, 6, attacker.rebirthCount)
             attacker.baseDEF = increaseAttributeWithLimit(attacker.baseDEF, 6, attacker.rebirthCount)
-            defender.baseATK = increaseAttributeWithLimit(defender.baseATK, 3, defender.rebirthCount)
-            defender.baseDEF = increaseAttributeWithLimit(defender.baseDEF, 3, defender.rebirthCount)
+            // 确保防守方属性不会异常重置
+            val defenderMaxATK = 225 + 10 * defender.rebirthCount
+            val defenderMaxDEF = 225 + 10 * defender.rebirthCount
 
+            defender.baseATK = increaseAttributeWithLimit(
+                defender.baseATK.coerceAtMost(defenderMaxATK),
+                3,
+                defender.rebirthCount
+            )
+            defender.baseDEF = increaseAttributeWithLimit(
+                defender.baseDEF.coerceAtMost(defenderMaxDEF),
+                3,
+                defender.rebirthCount
+            )
             // 喵币转移
             if (defender.qqId != 0L && defender.gold > 0) {
                 // 计算喵币变化，最多不超过50个喵币
@@ -2350,11 +3048,23 @@ object PluginMain : KotlinPlugin(
             PkResult(attacker, defender, false, criticalHit, criticalPlayerId, criticalEquipment)
         } else if (defenderPower > attackerPower) {
             // 防御方胜利
-            defender.baseATK = increaseAttributeWithLimit(defender.baseATK, 6, attacker.rebirthCount)
-            defender.baseDEF = increaseAttributeWithLimit(defender.baseDEF, 6, attacker.rebirthCount)
-            attacker.baseATK = increaseAttributeWithLimit(attacker.baseATK, 3, attacker.rebirthCount)
-            attacker.baseDEF = increaseAttributeWithLimit(attacker.baseDEF, 3, attacker.rebirthCount)
+            defender.baseATK = increaseAttributeWithLimit(defender.baseATK, 6, defender.rebirthCount)
+            defender.baseDEF = increaseAttributeWithLimit(defender.baseDEF, 6, defender.rebirthCount)
 
+            // 确保攻击方属性不会异常重置
+            val attackerMaxATK = 225 + 10 * attacker.rebirthCount
+            val attackerMaxDEF = 225 + 10 * attacker.rebirthCount
+
+            attacker.baseATK = increaseAttributeWithLimit(
+                attacker.baseATK.coerceAtMost(attackerMaxATK),
+                3,
+                attacker.rebirthCount
+            )
+            attacker.baseDEF = increaseAttributeWithLimit(
+                attacker.baseDEF.coerceAtMost(attackerMaxDEF),
+                3,
+                attacker.rebirthCount
+            )
             // 喵币转移
             if (attacker.qqId != 0L && attacker.gold > 0) {
                 // 计算喵币变化，最多不超过50喵币
@@ -2366,11 +3076,32 @@ object PluginMain : KotlinPlugin(
             PkResult(defender, attacker, false, criticalHit, criticalPlayerId, criticalEquipment)
         } else {
             // 平局
-            attacker.baseATK = increaseAttributeWithLimit(attacker.baseATK, 3, attacker.rebirthCount)
-            attacker.baseDEF = increaseAttributeWithLimit(attacker.baseDEF, 3, attacker.rebirthCount)
-            defender.baseATK = increaseAttributeWithLimit(defender.baseATK, 3, attacker.rebirthCount)
-            defender.baseDEF = increaseAttributeWithLimit(defender.baseDEF, 3, attacker.rebirthCount)
+            // 确保双方属性不会异常重置
+            val attackerMaxATK = 225 + 10 * attacker.rebirthCount
+            val attackerMaxDEF = 225 + 10 * attacker.rebirthCount
+            val defenderMaxATK = 225 + 10 * defender.rebirthCount
+            val defenderMaxDEF = 225 + 10 * defender.rebirthCount
 
+            attacker.baseATK = increaseAttributeWithLimit(
+                attacker.baseATK.coerceAtMost(attackerMaxATK),
+                3,
+                attacker.rebirthCount
+            )
+            attacker.baseDEF = increaseAttributeWithLimit(
+                attacker.baseDEF.coerceAtMost(attackerMaxDEF),
+                3,
+                attacker.rebirthCount
+            )
+            defender.baseATK = increaseAttributeWithLimit(
+                defender.baseATK.coerceAtMost(defenderMaxATK),
+                3,
+                defender.rebirthCount
+            )
+            defender.baseDEF = increaseAttributeWithLimit(
+                defender.baseDEF.coerceAtMost(defenderMaxDEF),
+                3,
+                defender.rebirthCount
+            )
             PkResult(attacker, defender, true, criticalHit, criticalPlayerId, criticalEquipment)
         }
     }

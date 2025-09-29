@@ -26,7 +26,7 @@ object DungeonStoryGenerator {
         },
         "发现了隐藏的宝箱" to { playerName: String, dungeon: Dungeon ->
             DungeonEvent(playerName, "发现了隐藏的宝箱", "↑",
-                "[❤] $playerName 发现了隐藏的宝箱，获得了额外的喵币",
+                "[❤] $playerName 发现了隐藏的宝箱，获得了额外的喵币！",
                 extraGold = (dungeon.reward * 0.1).toInt())
         },
         "施展了治疗法术" to { playerName: String, dungeon: Dungeon ->
@@ -43,7 +43,7 @@ object DungeonStoryGenerator {
             val dungeonLevel = dungeon.id // 副本编号 1-5
             val squareBonus = dungeonLevel * dungeonLevel // 平方奖励
             DungeonEvent(playerName, "激活了神秘BUFF", "↑",
-                "[❤] $playerName 激活了神秘BUFF，所有成员变大变粗",
+                "[❤] $playerName 激活了神秘BUFF，所有成员BDBC！",
                 extraATK = squareBonus,
                 extraDEF = squareBonus)
         },
@@ -60,7 +60,7 @@ object DungeonStoryGenerator {
         "变成了猪" to { playerName: String, dungeon: Dungeon ->
             val dungeonLevel = dungeon.id // 副本编号-难度1-5
             DungeonEvent(playerName, "变成了猪", "↑",
-                "[❤] $playerName 遇到了加强茯苓，并把他变成了🐷，获得了一些属性",
+                "[❤] $playerName 遇到了白丝独伊，并把他变成了🐷！",
                 extraATK = dungeonLevel,
                 extraDEF = dungeonLevel)
         },
@@ -186,7 +186,7 @@ object DungeonStoryGenerator {
         "发现了隐藏的传送门" to { playerName: String, dungeon: Dungeon ->
             DungeonEvent(playerName, "发现了隐藏的传送门", "↑",
                 "[✨] $playerName 发现了一个发光的传送门，似乎是一条近道！",
-                successRateChange = 0.033)
+                successRateChange = 0.023)
         },
         "找到了古代宝库" to { playerName: String, dungeon: Dungeon ->
             DungeonEvent(playerName, "找到了古代宝库", "↑",

@@ -21,11 +21,26 @@ data class PlayerData(
     var lastDungeonResetDate: String = "",
     var relic: Relic? = null,
     var lastFindOpponentTime: Long = 0,
-    // 新增兑换码使用记录字段
-    var usedCodes: MutableSet<String> = mutableSetOf(), // 存储已使用的兑换码
-    var hiddenDungeonTickets: Int = 0, // 隐藏副本进入券数量
-    var sPetChangeTickets: Int = 0, // 新增：S型宠物辅助职业变更券数量
-    var enhanceFailCount: Int = 0
+    var usedCodes: MutableSet<String> = mutableSetOf(),
+    var hiddenDungeonTickets: Int = 0,
+    var sPetChangeTickets: Int = 0,
+    var enhanceFailCount: Int = 0,
+    var devouredATK: Int = 0,
+    var devouredDEF: Int = 0,
+    var devouredLUCK: Int = 0,
+    var devouredPets: MutableMap<String, Int> = mutableMapOf(),
+    var relicAtkBonus: Int = 0,
+    var relicDefBonus: Int = 0,
+    var relicLuckBonus: Int = 0,
+    // 保留鱼饵相关字段（在彩笔数量之前）
+    var fishBaitCount: Int = 0,
+    var dailyFishBaitUsed: Int = 0,
+    var lastFishResetDate: String = "",
+    var fishBombCount: Int = 0,
+    // 彩笔数量，保证彩笔数量在最下边
+    var redPenCount: Int = 0,
+    var bluePenCount: Int = 0,
+    var yellowPenCount: Int = 0
 )
 
 // 新增宠物数据类
@@ -41,18 +56,18 @@ data class Pet(
 
 // 添加宠物特殊效果枚举
 enum class PetEffect {
-    WARRIOR,       // 战士：提升团队副本总ATK 33%
-    WARRIOR_S,     // 战士S：提升团队副本总ATK 50%
-    THIEF,         // 盗贼：提升团队副本总收益 25%
-    THIEF_S,       // 盗贼S：提升团队副本总收益 25%
-    ARCHER,        // 弓手：提升团队副本总LUCK 10%
-    ARCHER_S,      // 弓手S：提升团队副本总LUCK 20%
-    PRIEST,        // 牧师：提升正向事件概率 5%
-    PRIEST_S,      // 牧师S：提升正向事件概率 10%
-    TREASURE_HUNTER, // 宝藏猎手：增加装备掉落概率 5%
-    TREASURE_HUNTER_S, // 宝藏猎手S：增加装备掉落概率 10%
-    BARD,          // 吟游诗人：增加隐藏副本出现概率 5%
-    BARD_S         // 吟游诗人S：增加隐藏副本出现概率 10%
+    WARRIOR,
+    WARRIOR_S,
+    THIEF,
+    THIEF_S,
+    ARCHER,
+    ARCHER_S,
+    PRIEST,
+    PRIEST_S,
+    TREASURE_HUNTER,
+    TREASURE_HUNTER_S,
+    BARD,
+    BARD_S
 }
 
 @Serializable
@@ -61,5 +76,5 @@ data class Relic(
     val atk: Int,
     val def: Int,
     val luck: Int,
-    val grade: String // 遗物品级
+    val grade: String
 )

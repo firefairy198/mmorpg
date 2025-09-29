@@ -15,15 +15,28 @@ import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 
+
+// 伤害记录数据类
+@Serializable
+data class DamageRecord(
+    val playerId: Long,
+    val playerName: String,
+    val damage: Long,
+    val timestamp: String,
+    val bossLevel: Int
+)
+
+
 // 世界BOSS数据类
 @Serializable
 data class WorldBoss(
-    var currentHp: Long = 600000, // 修改：初始血量从1000000改为600000
-    var maxHp: Long = 600000,     // 修改：初始血量从1000000改为600000
+    var currentHp: Long = 1500000,
+    var maxHp: Long = 1500000,
     var level: Int = 1,
     var lastResetTime: String = getCurrentDateTime(), // 最后重置时间（改为记录完整时间）
     var attackers: MutableMap<String, Long> = mutableMapOf(), // 攻击者记录 (玩家ID-等级 -> 造成的伤害)
-    var rewards: MutableMap<Long, Int> = mutableMapOf() // 奖励记录 (玩家ID -> 获得的奖励)
+    var rewards: MutableMap<Long, Int> = mutableMapOf(), // 奖励记录 (玩家ID -> 获得的奖励)
+    var damageRecords: MutableList<DamageRecord> = mutableListOf() // 新增：伤害记录
 ) {
     companion object {
         // 获取当前日期时间（使用明确时区）
@@ -113,8 +126,8 @@ object WorldBossManager {
 
         // 如果最后重置时间早于重置时间点，则需要重置
         if (lastResetTime.isBefore(resetTime)) {
-            boss.currentHp = 600000 // 修改：重置血量从1000000改为600000
-            boss.maxHp = 600000     // 修改：重置血量从1000000改为600000
+            boss.currentHp = 1500000
+            boss.maxHp = 1500000
             boss.level = 1
             boss.lastResetTime = resetTime.format(formatter)
             boss.attackers.clear()
@@ -135,7 +148,7 @@ object WorldBossManager {
         checkAndResetBoss(worldBoss)
 
         val progressBar = getProgressBar(worldBoss.currentHp.toDouble() / worldBoss.maxHp.toDouble())
-        return "世界BOSS LV.${worldBoss.level}\n" +
+        return "猪咪王 LV.${worldBoss.level}\n" +
             "HP: ${worldBoss.currentHp}/${worldBoss.maxHp}\n" +
             "进度: $progressBar\n" +
             "参与人数: ${worldBoss.attackers.size}"
@@ -156,25 +169,49 @@ object WorldBossManager {
         // 检查玩家是否已经攻击过当前等级的BOSS
         val attackKey = WorldBoss.getAttackKey(playerId, worldBoss.level)
         if (worldBoss.attackers.containsKey(attackKey)) {
-            return "你已经对当前等级的世界BOSS出过刀了！"
+            return "你已经对当前等级的猪咪王出过刀了！"
         }
 
         // 检查BOSS是否已被击败
         if (worldBoss.currentHp <= 0) {
-            return "世界BOSS已被击败，请等待下次刷新！"
+            return "猪咪王已被击败，请等待下次刷新！"
         }
 
-        // 计算伤害
+
+        // 获取玩家数据以读取转生次数
+        val playerData = PlayerDataManager.getPlayerData(playerId)
+        val rebirthCount = playerData?.rebirthCount ?: 0
+        val rebirthBonus = 1 + 0.01 * rebirthCount
+        // 计算伤害 (修改后的公式：加入转生次数加成)
         val randomFactor = Random.nextDouble(0.66, 1.33)
-        val damage = ((atk + def) * luck * randomFactor).toLong()
+        val damage = ((atk + def) * luck * randomFactor * rebirthBonus).toLong()
 
         // 记录伤害
         worldBoss.attackers[attackKey] = damage
         worldBoss.currentHp -= damage
 
+        // 记录伤害记录
+        val damageRecord = DamageRecord(
+            playerId = playerId,
+            playerName = playerName,
+            damage = damage,
+            timestamp = getCurrentDateTime(),
+            bossLevel = worldBoss.level
+        )
+        worldBoss.damageRecords.add(damageRecord)
+
+        // 只保留最新的100条记录，避免数据过大
+        if (worldBoss.damageRecords.size > 100) {
+            worldBoss.damageRecords = worldBoss.damageRecords.takeLast(100).toMutableList()
+        }
+
         // 生成伤害消息
         val damageMessage = StringBuilder()
-        damageMessage.append("${playerName} 对世界BOSS(LV.${worldBoss.level})造成了 $damage 点伤害！")
+        damageMessage.append("${playerName} 对猪咪王(LV.${worldBoss.level})造成了 $damage 点伤害！")
+        // 添加转生次数信息
+        if (rebirthCount > 0) {
+            damageMessage.append(" (转生${rebirthCount}次加成: +${rebirthCount}%)")
+        }
 
         // 添加彩蛋消息
         when {
@@ -190,7 +227,7 @@ object WorldBossManager {
 
         // 检查BOSS是否被击败
         if (worldBoss.currentHp <= 0) {
-            damageMessage.append("\n\n世界BOSS已被击败！奖励将在稍后发放...")
+            damageMessage.append("\n\n猪咪王已被击败！奖励将在稍后发放...")
             // 启动异步任务发放奖励
             GlobalScope.launch {
                 distributeRewards()
@@ -203,6 +240,31 @@ object WorldBossManager {
         return damageMessage.toString()
     }
 
+    // 获取伤害排行榜
+    fun getDamageRanking(limit: Int = 3): String {
+        if (worldBoss.damageRecords.isEmpty()) {
+            return "暂无伤害记录"
+        }
+
+        // 按伤害值排序，取前limit名
+        val topRecords = worldBoss.damageRecords
+            .sortedByDescending { it.damage }
+            .take(limit)
+
+        val rankingMessage = StringBuilder()
+        rankingMessage.append("🔪刀神排行榜：\n")
+
+        topRecords.forEachIndexed { index, record ->
+            val rank = index + 1
+            val dateTime = LocalDateTime.parse(record.timestamp, DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+            val formattedDate = dateTime.format(DateTimeFormatter.ofPattern("MM-dd HH:mm"))
+
+            rankingMessage.append("${rank}. ${record.playerName} - ${record.damage}点伤害 (LV.${record.bossLevel}, ${formattedDate})\n")
+        }
+
+        return rankingMessage.toString()
+    }
+
     // 分发奖励
     private suspend fun distributeRewards() {
         delay(1000) // 延迟1秒确保所有攻击记录已保存
@@ -211,14 +273,14 @@ object WorldBossManager {
         val rewardBase = worldBoss.level * 1000
 
         // 计算总奖励池
-        val totalRewardPool = rewardBase * 6
+        val totalRewardPool = rewardBase * 5
 
         // 分批发放奖励，避免一次性处理过多数据
         val batchSize = 50
 
         // 构建奖励详情消息
         val rewardDetails = StringBuilder()
-        rewardDetails.append("世界BOSS击败奖励详情:\n")
+        rewardDetails.append("猪咪王击败奖励详情:\n")
         rewardDetails.append("BOSS等级: ${worldBoss.level}\n")
         rewardDetails.append("总伤害: $totalDamage\n")
         rewardDetails.append("奖励池: $totalRewardPool 喵币\n")
@@ -243,7 +305,7 @@ object WorldBossManager {
                 // 记录奖励
                 worldBoss.rewards[playerId] = totalReward
 
-                PluginMain.logger.info("玩家 $playerId 获得世界BOSS奖励: $totalReward 喵币")
+                PluginMain.logger.info("玩家 $playerId 获得猪咪王奖励: $totalReward 喵币")
             }
         }
 
@@ -253,15 +315,15 @@ object WorldBossManager {
         // 发送奖励详情到日志
         PluginMain.logger.info(rewardDetails.toString())
 
-        // 提升BOSS等级和血量 - 修改：从1.2倍改为1.3倍
+        // 提升BOSS等级和血量
         worldBoss.level++
-        worldBoss.maxHp = (worldBoss.maxHp * 1.3).toLong()
+        worldBoss.maxHp = (worldBoss.maxHp * 1.1).toLong()
         worldBoss.currentHp = worldBoss.maxHp
         worldBoss.attackers.clear()
         worldBoss.rewards.clear()
 
         saveWorldBoss()
-        PluginMain.logger.info("世界BOSS已升级至 LV.${worldBoss.level}, 新血量: ${worldBoss.maxHp}")
+        PluginMain.logger.info("猪咪王已升级至 LV.${worldBoss.level}, 新血量: ${worldBoss.maxHp}")
     }
 
     // 重置BOSS（管理员命令）
@@ -279,14 +341,14 @@ object WorldBossManager {
             todayNoon
         }
 
-        worldBoss.currentHp = 600000 // 修改：重置血量从1000000改为600000
-        worldBoss.maxHp = 600000     // 修改：重置血量从1000000改为600000
+        worldBoss.currentHp = 800000
+        worldBoss.maxHp = 800000
         worldBoss.level = 1
         worldBoss.lastResetTime = resetTime.format(formatter)
         worldBoss.attackers.clear()
         worldBoss.rewards.clear()
         saveWorldBoss()
-        return "世界BOSS已重置！下次重置时间：中午12点"
+        return "猪咪王已重置！下次重置时间：中午12点"
     }
 
     // 添加获取玩家奖励信息的方法
@@ -295,11 +357,11 @@ object WorldBossManager {
         val reward = worldBoss.rewards[playerId]
 
         return if (damage != null && reward != null) {
-            "你对世界BOSS造成了 $damage 点伤害，获得 $reward 喵币奖励"
+            "你对猪咪王造成了 $damage 点伤害，获得 $reward 喵币奖励"
         } else if (damage != null) {
-            "你对世界BOSS造成了 $damage 点伤害，奖励尚未发放"
+            "你对猪咪王造成了 $damage 点伤害，奖励尚未发放"
         } else {
-            "你今天还没有攻击世界BOSS"
+            "你今天还没有攻击猪咪王"
         }
     }
 

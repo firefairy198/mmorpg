@@ -17,7 +17,9 @@ object Shop {
     val specialEquipmentList = listOf(
         Equipment("[SR]王国圣剑", atk = 98, def = 68, luck = 8, price = 6666),
         Equipment("[SSR]天使权杖", atk = 138, def = 88, luck = 10, price = 16666),
-        Equipment("[UR]魔之宝珠", atk = 198, def = 98, luck = 15, price = 26666)
+        Equipment("[UR]魔之宝珠", atk = 198, def = 98, luck = 15, price = 26666),
+        // 新增MR装备
+        Equipment("[MR]诸神之怒", atk = 278, def = 118, luck = 20, price = 36666)
     )
 
     // 获取特殊装备的方法
@@ -28,15 +30,16 @@ object Shop {
 
     // 道具类商城
     val itemList = listOf(
-        Item("隐藏副本进入券", price = 2500, maxStack = 1, description = "使用后确保隐藏副本的出现（需每人均持有1枚）"),
-        Item("S型宠物辅助职业变更券", price = 2000, maxStack = 10, description = "使用后可以将宠物职业变更为盗贼S、牧师S、宝藏猎手S、吟游诗人S中的随机一种")
+        Item("S型宠物辅助职业变更券", price = 500, maxStack = 10, description = "(一次购买获得5张)可将宠物职业变更为盗贼S、牧师S、宝藏猎手S、吟游诗人S中的随机一种"),
+        Item("鱼饵", price = 5000, maxStack = 50, description = "(一次购买获得5个)钓鱼用的鱼饵，需要持有鱼饵才可以钓鱼~转生次数小于5次不要购买！"),
+        Item("炸鱼器", price = 10000, maxStack = 1, description = "一次性获得10条鱼的效果，省时省力！(今日钓鱼次数为0时才能使用)")
     )
 
     // 道具数据类
     data class Item(
         val name: String,
         val price: Int,
-        val maxStack: Int, // 最大堆叠数量
+        val maxStack: Int,
         val description: String
     )
 

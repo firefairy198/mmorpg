@@ -10,11 +10,12 @@ data class Dungeon(
 
 object DungeonManager {
     val dungeons = listOf(
-        Dungeon(1, "初级洞穴", 4000, 400),
-        Dungeon(2, "中级地牢", 20000, 600),
+        Dungeon(1, "初级洞穴", 4000, 2400),
+        Dungeon(2, "中级地牢", 20000, 2000),
         Dungeon(3, "高级城堡", 100000, 1000),
         Dungeon(4, "精英神殿", 500000, 1600),
-        Dungeon(5, "魔王深渊", 2500000, 2400)
+        Dungeon(5, "魔王深渊", 2500000, 800),
+        Dungeon(6, "天堂宝库", 12500000, 400)
     )
 
     fun getDungeonById(id: Int): Dungeon? {

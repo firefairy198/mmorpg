@@ -2,6 +2,7 @@
 package org.example.mmorpg
 
 import kotlinx.serialization.Serializable
+import kotlin.math.pow
 
 @Serializable
 data class Equipment(
@@ -12,19 +13,19 @@ data class Equipment(
     val price: Int,
     var enhanceLevel: Int = 0 // 新增：强化等级，默认为0
 ) {
-    // 计算强化后的ATK
+    // 计算强化后的ATK（改为乘算）
     fun getEnhancedAtk(): Int {
-        return (atk * (1 + enhanceLevel * 0.1)).toInt()
+        return (atk * (1.1).pow(enhanceLevel)).toInt()
     }
 
-    // 计算强化后的DEF
+    // 计算强化后的DEF（改为乘算）
     fun getEnhancedDef(): Int {
-        return (def * (1 + enhanceLevel * 0.1)).toInt()
+        return (def * (1.1).pow(enhanceLevel)).toInt()
     }
 
-    // 计算强化后的LUCK
+    // 计算强化后的LUCK（改为乘算）
     fun getEnhancedLuck(): Int {
-        return (luck * (1 + enhanceLevel * 0.1)).toInt()
+        return (luck * (1.1).pow(enhanceLevel)).toInt()
     }
 
     // 获取带强化等级的装备名称
