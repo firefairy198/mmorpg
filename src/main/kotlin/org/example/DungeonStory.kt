@@ -145,6 +145,8 @@ object DungeonStoryGenerator {
 
     // 生成随机剧情事件
     // 生成随机剧情事件
+    // 修改 generateEvents 函数，添加难度7的特殊事件概率
+    // 修改 generateEvents 函数，让难度7副本也考虑牧师效果
     fun generateEvents(team: Team, dungeon: Dungeon, positiveEventBonus: Double = 0.0, additionalEvents: Int = 0): List<DungeonEvent> {
         val events = mutableListOf<DungeonEvent>()
         val members = team.members.map { it.playerName }
@@ -152,11 +154,23 @@ object DungeonStoryGenerator {
         // 基础5个事件 + 宝藏猎手提供的额外事件
         val totalEvents = 5 + additionalEvents
 
+        // 检查是否为难度7副本
+        val isDifficulty7 = dungeon.id == 7
+
         // 生成事件
         repeat(totalEvents) {
             val player = members.random()
-            // 应用正向事件概率加成（确保不超过合理范围）
-            val positiveChance = (0.5 + positiveEventBonus).coerceIn(0.0, 1.0)
+
+            // 难度7副本：基础正面事件概率0%，但可以受到牧师加成
+            val basePositiveChance = if (isDifficulty7) {
+                0.0 // 难度7副本基础正面事件概率为0%
+            } else {
+                0.5
+            }
+
+            // 应用牧师效果加成
+            val positiveChance = (basePositiveChance + positiveEventBonus).coerceIn(0.0, 1.0)
+
             val isPositive = Random.nextDouble() < positiveChance
 
             if (isPositive) {
@@ -234,16 +248,28 @@ object DungeonStoryGenerator {
         }
     )
 
-    // 修改 generateEvents 方法，添加奖励副本事件生成
+    // 修改 generateBonusDungeonEvents 函数，添加难度7隐藏副本的特殊事件概率
     fun generateBonusDungeonEvents(team: Team, dungeon: Dungeon, positiveEventBonus: Double = 0.0): List<DungeonEvent> {
         val events = mutableListOf<DungeonEvent>()
         val members = team.members.map { it.playerName }
 
-        // 添加3个特殊事件，按照20%正面/80%负面的基础概率，加上牧师效果调整
+        // 检查是否为难度7隐藏副本（原始副本难度为7）
+        val isDifficulty7Bonus = (dungeon.id / 10) == 7
+
+        // 添加3个特殊事件
         repeat(3) {
             val player = members.random()
-            // 应用正面事件概率加成（基础20% + 牧师效果调整）
-            val positiveChance = (0.2 + positiveEventBonus).coerceIn(0.0, 1.0)
+
+            // 难度7隐藏副本：基础正面事件概率20%，但可以受到牧师加成
+            val basePositiveChance = if (isDifficulty7Bonus) {
+                0.2 // 难度7隐藏副本基础正面事件概率为20%
+            } else {
+                0.2
+            }
+
+            // 应用牧师效果加成
+            val positiveChance = (basePositiveChance + positiveEventBonus).coerceIn(0.0, 1.0)
+
             val isPositive = Random.nextDouble() < positiveChance
 
             if (isPositive) {

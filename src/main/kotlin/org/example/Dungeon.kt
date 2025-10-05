@@ -15,7 +15,8 @@ object DungeonManager {
         Dungeon(3, "高级城堡", 100000, 1000),
         Dungeon(4, "精英神殿", 500000, 1600),
         Dungeon(5, "魔王深渊", 2500000, 800),
-        Dungeon(6, "天堂宝库", 12500000, 400)
+        Dungeon(6, "天堂宝库", 12500000, 400),
+        Dungeon(7, "神殿", 100000000, 200)
     )
 
     fun getDungeonById(id: Int): Dungeon? {

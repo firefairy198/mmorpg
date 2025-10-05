@@ -32,6 +32,12 @@ data class PlayerData(
     var relicAtkBonus: Int = 0,
     var relicDefBonus: Int = 0,
     var relicLuckBonus: Int = 0,
+    // 新增：消息返回样式设置 (null或0=文字，1=图片)
+    var messageBack: Int? = null,
+    // 鱼塘加入时间
+    var pondJoinTime: String? = null,
+    // 精英鱼攻击冷却时间
+    var lastEliteFishAttackTime: Long = 0,
     // 保留鱼饵相关字段（在彩笔数量之前）
     var fishBaitCount: Int = 0,
     var dailyFishBaitUsed: Int = 0,
@@ -40,7 +46,8 @@ data class PlayerData(
     // 彩笔数量，保证彩笔数量在最下边
     var redPenCount: Int = 0,
     var bluePenCount: Int = 0,
-    var yellowPenCount: Int = 0
+    var yellowPenCount: Int = 0,
+    var blackPenCount: Int = 0
 )
 
 // 新增宠物数据类

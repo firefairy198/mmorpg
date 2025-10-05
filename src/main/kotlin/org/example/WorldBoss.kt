@@ -30,8 +30,8 @@ data class DamageRecord(
 // 世界BOSS数据类
 @Serializable
 data class WorldBoss(
-    var currentHp: Long = 1500000,
-    var maxHp: Long = 1500000,
+    var currentHp: Long = 3000000,
+    var maxHp: Long = 3000000,
     var level: Int = 1,
     var lastResetTime: String = getCurrentDateTime(), // 最后重置时间（改为记录完整时间）
     var attackers: MutableMap<String, Long> = mutableMapOf(), // 攻击者记录 (玩家ID-等级 -> 造成的伤害)
@@ -126,8 +126,8 @@ object WorldBossManager {
 
         // 如果最后重置时间早于重置时间点，则需要重置
         if (lastResetTime.isBefore(resetTime)) {
-            boss.currentHp = 1500000
-            boss.maxHp = 1500000
+            boss.currentHp = 3000000
+            boss.maxHp = 3000000
             boss.level = 1
             boss.lastResetTime = resetTime.format(formatter)
             boss.attackers.clear()
@@ -270,7 +270,7 @@ object WorldBossManager {
         delay(1000) // 延迟1秒确保所有攻击记录已保存
 
         val totalDamage = worldBoss.attackers.values.sum()
-        val rewardBase = worldBoss.level * 1000
+        val rewardBase = worldBoss.level * 2000
 
         // 计算总奖励池
         val totalRewardPool = rewardBase * 5
@@ -296,7 +296,7 @@ object WorldBossManager {
                 // 计算奖励：基于伤害比例 + 参与奖励
                 val damageRatio = damage.toDouble() / totalDamage
                 val damageReward = (totalRewardPool * damageRatio).toInt()
-                val participationReward = 388 // 参与奖励
+                val participationReward = 888 // 参与奖励
                 val totalReward = damageReward + participationReward
 
                 playerData.gold += totalReward
@@ -317,7 +317,7 @@ object WorldBossManager {
 
         // 提升BOSS等级和血量
         worldBoss.level++
-        worldBoss.maxHp = (worldBoss.maxHp * 1.1).toLong()
+        worldBoss.maxHp = (worldBoss.maxHp * 1.3).toLong()
         worldBoss.currentHp = worldBoss.maxHp
         worldBoss.attackers.clear()
         worldBoss.rewards.clear()

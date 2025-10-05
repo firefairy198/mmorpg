@@ -7,6 +7,7 @@ import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import java.io.File
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import kotlin.random.Random
 import kotlin.math.min
@@ -198,6 +199,13 @@ object FishingManager {
         playerRelation.managedPonds.add(pondName)
         savePlayerPondRelation(managerId, playerRelation)
 
+        // 记录管理者加入鱼塘的时间
+        val playerData = PlayerDataManager.getPlayerData(managerId)
+        if (playerData != null) {
+            playerData.pondJoinTime = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+            PlayerDataManager.savePlayerData(playerData)
+        }
+
         return true
     }
 
@@ -206,7 +214,7 @@ object FishingManager {
         val pond = loadFishPond(pondName) ?: return false
 
         // 检查鱼塘是否已满
-        if (pond.members.size >= 10) {
+        if (pond.members.size >= 15) {
             return false
         }
 
@@ -223,6 +231,13 @@ object FishingManager {
         val playerRelation = loadPlayerPondRelation(playerId)
         playerRelation.currentPondName = pondName
         savePlayerPondRelation(playerId, playerRelation)
+
+        // 记录玩家加入鱼塘的时间
+        val playerData = PlayerDataManager.getPlayerData(playerId)
+        if (playerData != null) {
+            playerData.pondJoinTime = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+            PlayerDataManager.savePlayerData(playerData)
+        }
 
         return true
     }
@@ -384,6 +399,24 @@ object FishingManager {
         return FishingResult(fish, cookingMethod, message)
     }
 
+    fun checkEliteFishSpawn(pondName: String): Boolean {
+        val pond = loadFishPond(pondName) ?: return false
+
+        // 基础概率10%，鱼塘每升1级增加2%
+        val baseProbability = 0.1
+        val levelBonus = pond.level * 0.02
+        val totalProbability = baseProbability + levelBonus
+
+        val randomValue = Random.nextDouble()
+        if (randomValue < totalProbability) {
+            PluginMain.logger.info("鱼塘 $pondName 等级 ${pond.level}，精英鱼生成概率: ${"%.1f".format(totalProbability * 100)}%，随机值: ${"%.1f".format(randomValue * 100)}%")
+            return EliteFishManager.spawnEliteFish(pondName)
+        } else {
+            PluginMain.logger.info("鱼塘 $pondName 等级 ${pond.level}，精英鱼生成概率: ${"%.1f".format(totalProbability * 100)}%，随机值: ${"%.1f".format(randomValue * 100)}%，未生成")
+        }
+        return false
+    }
+
     // 计算升级所需喵币
     fun getUpgradeCost(currentLevel: Int): Int {
         return (currentLevel + 1) * 50000
@@ -411,7 +444,7 @@ object FishingManager {
 创建时间: ${pond.createdTime}
 等级: ${pond.level}级  |  $remainingForNextLevel 喵币
 累计投资: ${pond.totalInvestment}喵币
-成员数量: ${pond.members.size}/10人""")
+成员数量: ${pond.members.size}/15人""")
 
         if (pond.level < 10) {
             infoBuilder.append("")
@@ -441,6 +474,20 @@ object FishingManager {
         infoBuilder.append("\n5星鱼: ${"%.1f".format(probabilities[5]!! * 100)}%")
         infoBuilder.append("\nEX鱼: ${"%.1f".format(probabilities[6]!! * 100)}%")
         infoBuilder.append("\nEX鱼2: ${"%.1f".format(probabilities[7]!! * 100)}%")
+
+        infoBuilder.append("\n\n精英鱼讨伐:")
+        val hasEliteFish = EliteFishManager.getEliteFish(pondName) != null
+        if (hasEliteFish) {
+            infoBuilder.append("\n当前有精英鱼出现！使用'/鱼塘出刀'参与讨伐")
+        } else {
+            infoBuilder.append("\n当前无精英鱼")
+        }
+
+        // 添加生成概率信息
+        val baseProbability = 10
+        val levelBonus = pond.level * 2
+        val totalProbability = baseProbability + levelBonus
+        infoBuilder.append("\n炸鱼器生成概率: ${totalProbability}% (基础${baseProbability}% + 等级${pond.level}级加成${levelBonus}%)")
 
         return infoBuilder.toString()
     }

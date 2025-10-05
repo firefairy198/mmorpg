@@ -41,6 +41,20 @@ object PlayerDataManager {
                     )
                 }
 
+
+                // 兼容性处理：新增消息返回样式字段
+                if (playerData.messageBack == null) {
+                    playerData.messageBack = null // 保持null，表示使用文字消息
+                }
+
+
+                if (playerData.pondJoinTime == null) {
+                    playerData.pondJoinTime = "2025-09-01T00:00:00" // 默认时间
+                }
+                if (playerData.lastEliteFishAttackTime == 0L) {
+                    playerData.lastEliteFishAttackTime = System.currentTimeMillis() - 2 * 60 * 60 * 1000 // 设置为2小时前，允许立即攻击
+                }
+
                 // 兼容性处理：新增彩笔字段
                 if (playerData.relicAtkBonus == 0 && playerData.relicDefBonus == 0 && playerData.relicLuckBonus == 0) {
                     // 检查是否是旧数据，需要初始化
@@ -50,10 +64,12 @@ object PlayerDataManager {
                 }
 
                 // 再处理彩笔字段
-                if (playerData.redPenCount == 0 && playerData.bluePenCount == 0 && playerData.yellowPenCount == 0) {
+                if (playerData.redPenCount == 0 && playerData.bluePenCount == 0 &&
+                    playerData.yellowPenCount == 0 && playerData.blackPenCount == 0) {
                     playerData.redPenCount = 0
                     playerData.bluePenCount = 0
                     playerData.yellowPenCount = 0
+                    playerData.blackPenCount = 0  // 新增黑彩笔初始化
                 }
 
                 if (playerData.devouredPets.isEmpty()) {
