@@ -1986,21 +1986,18 @@ object PluginMain : KotlinPlugin(
 
                                     // 难度6副本汪币奖励（不受每日次数限制）
                                     if (dungeon.id == 6) {
-                                        // 80%概率获得1汪币，20%概率获得5汪币
-                                        val wangCoinReward = if (Random.nextDouble() < 0.8) 1 else 5
+                                        val wangCoinReward = if (Random.nextDouble() < 0.67) 1 else 3
                                         memberData.wangCoin += wangCoinReward
                                     }
 
                                     // 难度7副本汪币奖励（不受每日次数限制）
                                     if (dungeon.id == 7) {
-                                        // 80%概率获得5汪币，20%概率获得15汪币
-                                        val wangCoinReward = if (Random.nextDouble() < 0.8) 5 else 15
+                                        val wangCoinReward = if (Random.nextDouble() < 0.67) 3 else 9
                                         memberData.wangCoin += wangCoinReward
                                     }
 
                                     if (dungeon.id == 8) {
-                                        // 80%概率获得15汪币，20%概率获得25汪币
-                                        val wangCoinReward = if (Random.nextDouble() < 0.8) 15 else 25
+                                        val wangCoinReward = if (Random.nextDouble() < 0.67) 9 else 27
                                         memberData.wangCoin += wangCoinReward
                                     }
 
@@ -2299,11 +2296,6 @@ object PluginMain : KotlinPlugin(
                                             // 修复：奖励副本的属性奖励已经在前面的计算中应用了盗贼效果，这里直接使用
                                             memberData.baseATK = increaseAttributeWithLimit(memberData.baseATK, bonusTotalExtraATK, memberData.rebirthCount)
                                             memberData.baseDEF = increaseAttributeWithLimit(memberData.baseDEF, bonusTotalExtraDEF, memberData.rebirthCount)
-
-                                            if (originalDungeonId == 8) {
-                                                // 每人获得30汪币
-                                                memberData.wangCoin += 30
-                                            }
                                         }
 
                                         PlayerDataManager.savePlayerData(memberData)
