@@ -399,17 +399,23 @@ object FishingManager {
         return FishingResult(fish, cookingMethod, message)
     }
 
-    fun checkEliteFishSpawn(pondName: String): Boolean {
+    fun checkEliteFishSpawn(pondName: String, forceSpawn: Boolean = false): Boolean {
         val pond = loadFishPond(pondName) ?: return false
 
-        // 基础概率10%，鱼塘每升1级增加2%
+        // 如果是强制生成，直接生成精英鱼
+        if (forceSpawn) {
+            PluginMain.logger.info("强制生成精英鱼在鱼塘 $pondName")
+            return EliteFishManager.spawnEliteFish(pondName)
+        }
+
+        // 原有的概率计算逻辑保持不变
         val baseProbability = 0.1
         val levelBonus = pond.level * 0.02
         val totalProbability = baseProbability + levelBonus
 
         val randomValue = Random.nextDouble()
         if (randomValue < totalProbability) {
-            PluginMain.logger.info("鱼塘 $pondName 等级 ${pond.level}，精英鱼生成概率: ${"%.1f".format(totalProbability * 100)}%，随机值: ${"%.1f".format(randomValue * 100)}%")
+            PluginMain.logger.info("鱼塘 $pondName 等级 ${pond.level}，精英鱼生成概率: ${"%.1f".format(totalProbability * 100)}%，随机值: ${"%.1f".format(randomValue * 100)}%，生成精英鱼")
             return EliteFishManager.spawnEliteFish(pondName)
         } else {
             PluginMain.logger.info("鱼塘 $pondName 等级 ${pond.level}，精英鱼生成概率: ${"%.1f".format(totalProbability * 100)}%，随机值: ${"%.1f".format(randomValue * 100)}%，未生成")
@@ -478,7 +484,7 @@ object FishingManager {
         infoBuilder.append("\n\n精英鱼讨伐:")
         val hasEliteFish = EliteFishManager.getEliteFish(pondName) != null
         if (hasEliteFish) {
-            infoBuilder.append("\n当前有精英鱼出现！使用'/鱼塘出刀'参与讨伐")
+            infoBuilder.append("\n当前有精英鱼出现！使用'/查看精英鱼'和'/鱼塘出刀'参与讨伐")
         } else {
             infoBuilder.append("\n当前无精英鱼")
         }

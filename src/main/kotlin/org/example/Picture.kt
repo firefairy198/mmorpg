@@ -9,9 +9,44 @@ import java.awt.image.BufferedImage
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import javax.imageio.ImageIO
+import java.io.File
 
 // Picture.kt
 object PictureGenerator {
+
+    // 定义字体变量
+    private var customFont: Font? = null
+
+    init {
+        // 初始化时尝试加载自定义字体
+        loadCustomFont()
+    }
+
+    // 加载自定义字体
+    private fun loadCustomFont() {
+        try {
+            val fontFile = File(PluginMain.dataFolder, "HanYiZhongYuanJian.ttf")
+            if (fontFile.exists()) {
+                val fontStream = fontFile.inputStream()
+                customFont = Font.createFont(Font.TRUETYPE_FONT, fontStream)
+                PluginMain.logger.info("成功加载自定义字体: HanYiZhongYuanJian.ttf")
+            } else {
+                PluginMain.logger.warning("自定义字体文件不存在: ${fontFile.absolutePath}")
+            }
+        } catch (e: Exception) {
+            PluginMain.logger.error("加载自定义字体时发生错误", e)
+        }
+    }
+
+    // 获取字体方法 - 如果自定义字体加载失败，使用备用字体
+    private fun getFont(style: Int = Font.PLAIN, size: Float): Font {
+        return try {
+            customFont?.deriveFont(style, size) ?: Font("Microsoft YaHei", style, size.toInt())
+        } catch (e: Exception) {
+            PluginMain.logger.error("使用自定义字体时发生错误，使用备用字体", e)
+            Font("Microsoft YaHei", style, size.toInt())
+        }
+    }
 
     // 卡片样式配置
     data class CardStyle(
@@ -27,9 +62,9 @@ object PictureGenerator {
     suspend fun generatePlayerInfoCard(
         playerName: String,
         playerData: PlayerData,
-        finalATK: Int,
-        finalDEF: Int,
-        finalLUCK: Int,
+        finalATK: Long,
+        finalDEF: Long,
+        finalLUCK: Long,
         contact: Contact
     ): Message {
         val image = createPlayerInfoImage(playerName, playerData, finalATK, finalDEF, finalLUCK)
@@ -39,12 +74,12 @@ object PictureGenerator {
     private fun createPlayerInfoImage(
         playerName: String,
         playerData: PlayerData,
-        finalATK: Int,
-        finalDEF: Int,
-        finalLUCK: Int
+        finalATK: Long,
+        finalDEF: Long,
+        finalLUCK: Long
     ): BufferedImage {
         val width = 400
-        val height = calculateCardHeight(playerData)
+        val height = calculateCardHeight(playerData) // 这里会计算包含项链的高度
         val image = BufferedImage(width, height, BufferedImage.TYPE_INT_RGB)
         val g = image.graphics as Graphics2D
 
@@ -62,6 +97,7 @@ object PictureGenerator {
         currentY = drawEquipment(g, playerData, width, currentY, style)
         currentY = drawPet(g, playerData, width, currentY, style)
         currentY = drawRelic(g, playerData, width, currentY, style)
+        currentY = drawLuckyNecklace(g, playerData, width, currentY, style) // 确保这行存在
 
         // 确保内容不会超出图片边界
         if (currentY > height - 10) {
@@ -72,6 +108,40 @@ object PictureGenerator {
 
         g.dispose()
         return image
+    }
+
+    // 添加绘制幸运项链的方法
+    private fun drawLuckyNecklace(g: Graphics2D, playerData: PlayerData, width: Int, startY: Int, style: CardStyle): Int {
+        if (playerData.luckyNecklace == null) return startY
+
+        g.font = getFont(Font.BOLD, 16f)
+        g.color = style.highlightColor
+        g.drawString("幸运项链", 20, startY)
+
+        g.font = getFont(Font.PLAIN, 12f)
+        g.color = style.textColor
+
+        val necklace = playerData.luckyNecklace!!
+        var currentY = startY + 20
+
+        // 项链名称和罕见度
+        g.drawString(necklace.getName(), 20, currentY)
+        currentY += 18
+
+        // 项链属性 - 确保每个属性都显示在一行
+        necklace.attributes.forEachIndexed { index, attr ->
+            val attrText = when (attr.type) {
+                NecklaceAttributeType.ATK -> "ATK+${attr.value}"
+                NecklaceAttributeType.DEF -> "DEF+${attr.value}"
+                NecklaceAttributeType.LUCK -> "LUCK+${attr.value}"
+                NecklaceAttributeType.POW -> "POW+${attr.displayValue}"
+            }
+            g.drawString("属性${index + 1}: $attrText", 20, currentY)
+            currentY += 16
+        }
+
+        currentY += 10
+        return currentY
     }
 
     private fun calculateCardHeight(playerData: PlayerData): Int {
@@ -91,6 +161,15 @@ object PictureGenerator {
 
         if (playerData.relic != null) {
             height += 70 // 遗物信息高度
+        }
+
+        //新增：幸运项链高度计算
+        if (playerData.luckyNecklace != null) {
+            val necklace = playerData.luckyNecklace!!
+            // 基础高度：标题 + 名称行 + 每个属性行
+            height += 60 // 标题和基础信息高度
+            height += necklace.attributes.size * 16 // 每个属性一行
+            height += 10 // 底部间距
         }
 
         // 添加底部边距
@@ -118,7 +197,7 @@ object PictureGenerator {
 
     private fun drawHeader(g: Graphics2D, playerName: String, width: Int, style: CardStyle): Int {
         // 设置字体
-        val titleFont = Font("Microsoft YaHei", Font.BOLD, 20) // 减小字体大小
+        val titleFont = getFont(Font.BOLD, 20f) // 减小字体大小
         g.font = titleFont
         g.color = style.titleColor
 
@@ -133,16 +212,16 @@ object PictureGenerator {
     private fun drawAttributes(
         g: Graphics2D,
         playerData: PlayerData,
-        finalATK: Int,
-        finalDEF: Int,
-        finalLUCK: Int,
+        finalATK: Long,
+        finalDEF: Long,
+        finalLUCK: Long,
         width: Int,
         startY: Int,
         style: CardStyle
     ): Int {
-        val sectionFont = Font("Microsoft YaHei", Font.BOLD, 16)
-        val textFont = Font("Microsoft YaHei", Font.PLAIN, 12)
-        val finalStatsFont = Font("Microsoft YaHei", Font.BOLD, 14)
+        val sectionFont = getFont(Font.BOLD, 16f)
+        val textFont = getFont(Font.PLAIN, 12f)
+        val finalStatsFont = getFont(Font.BOLD, 14f)
 
         g.font = sectionFont
         g.color = style.highlightColor
@@ -226,18 +305,19 @@ object PictureGenerator {
     }
 
     private fun drawResources(g: Graphics2D, playerData: PlayerData, width: Int, startY: Int, style: CardStyle): Int {
-        g.font = Font("Microsoft YaHei", Font.BOLD, 16)
+        g.font = getFont(Font.BOLD, 16f)
         g.color = style.highlightColor
         g.drawString("资源信息", 20, startY)
 
-        g.font = Font("Microsoft YaHei", Font.PLAIN, 12)
+        g.font = getFont(Font.PLAIN, 12f)
 
         var currentY = startY + 20
 
         // 第一行：喵币和转生次数
         g.color = style.textColor
         g.drawString("喵币: ${playerData.gold}", 20, currentY)
-        g.drawString("转生: ${playerData.rebirthCount}次", 180, currentY)
+        g.drawString("汪币: ${playerData.wangCoin}", 100, currentY)
+        g.drawString("转生: ${playerData.rebirthCount}次", 200, currentY)
         currentY += 20
 
         // 第二行：彩笔信息 - 用对应颜色显示
@@ -284,8 +364,13 @@ object PictureGenerator {
         currentY += 20
 
         // 第三行：其他道具
-        g.drawString("变更券: ${playerData.sPetChangeTickets}张", 180, currentY)
-        g.drawString("副本券: ${playerData.hiddenDungeonTickets}张", 20, currentY)
+
+        if (playerData.miraclePillCount > 0) {
+            g.color = style.textColor
+        }
+
+        g.drawString("小药丸: ${playerData.miraclePillCount}个", 180, currentY)
+        g.drawString("变更券: ${playerData.sPetChangeTickets}张", 20, currentY)
         currentY += 30
 
         return currentY
@@ -294,11 +379,11 @@ object PictureGenerator {
     private fun drawEquipment(g: Graphics2D, playerData: PlayerData, width: Int, startY: Int, style: CardStyle): Int {
         if (playerData.equipment == null) return startY
 
-        g.font = Font("Microsoft YaHei", Font.BOLD, 16)
+        g.font = getFont(Font.BOLD, 16f)
         g.color = style.highlightColor
         g.drawString("装备信息", 20, startY)
 
-        g.font = Font("Microsoft YaHei", Font.PLAIN, 12)
+        g.font = getFont(Font.PLAIN, 12f)
         g.color = style.textColor
 
         val equipment = playerData.equipment!!
@@ -345,11 +430,11 @@ object PictureGenerator {
     private fun drawPet(g: Graphics2D, playerData: PlayerData, width: Int, startY: Int, style: CardStyle): Int {
         if (playerData.pet == null) return startY
 
-        g.font = Font("Microsoft YaHei", Font.BOLD, 16)
+        g.font = getFont(Font.BOLD, 16f)
         g.color = style.highlightColor
         g.drawString("宠物信息", 20, startY)
 
-        g.font = Font("Microsoft YaHei", Font.PLAIN, 12)
+        g.font = getFont(Font.PLAIN, 12f)
         g.color = style.textColor
 
         val pet = playerData.pet!!
@@ -397,7 +482,7 @@ object PictureGenerator {
             val petsString = StringBuilder("吞噬宠物: ")
 
             for ((petName, petCount) in devouredPetsList) {
-                val petDisplayName = if (petCount > 1) "$petName($petCount)" else petName
+                val petDisplayName = if (petCount > 1) "$petName$petCount" else petName
                 petsString.append(petDisplayName)
             }
 
@@ -413,11 +498,11 @@ object PictureGenerator {
     private fun drawRelic(g: Graphics2D, playerData: PlayerData, width: Int, startY: Int, style: CardStyle): Int {
         if (playerData.relic == null) return startY
 
-        g.font = Font("Microsoft YaHei", Font.BOLD, 16)
+        g.font = getFont(Font.BOLD, 16f)
         g.color = style.highlightColor
         g.drawString("遗物信息", 20, startY + 5) // 向下移动5像素
 
-        g.font = Font("Microsoft YaHei", Font.PLAIN, 12)
+        g.font = getFont(Font.PLAIN, 12f)
         g.color = style.textColor
 
         val relic = playerData.relic!!

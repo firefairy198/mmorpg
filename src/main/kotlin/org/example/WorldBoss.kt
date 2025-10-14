@@ -14,6 +14,7 @@ import kotlin.random.Random
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
+import kotlin.math.min
 
 
 // 伤害记录数据类
@@ -30,8 +31,8 @@ data class DamageRecord(
 // 世界BOSS数据类
 @Serializable
 data class WorldBoss(
-    var currentHp: Long = 3000000,
-    var maxHp: Long = 3000000,
+    var currentHp: Long = 10000000,
+    var maxHp: Long = 10000000,
     var level: Int = 1,
     var lastResetTime: String = getCurrentDateTime(), // 最后重置时间（改为记录完整时间）
     var attackers: MutableMap<String, Long> = mutableMapOf(), // 攻击者记录 (玩家ID-等级 -> 造成的伤害)
@@ -126,14 +127,22 @@ object WorldBossManager {
 
         // 如果最后重置时间早于重置时间点，则需要重置
         if (lastResetTime.isBefore(resetTime)) {
-            boss.currentHp = 3000000
-            boss.maxHp = 3000000
+            // 获取TopPlayer记录来计算血量
+            val topPlayer = TopPlayerManager.getRecord()
+            val baseHp = if (topPlayer != null) {
+                (topPlayer.finalATK + topPlayer.finalDEF) * topPlayer.finalLUCK * 10L
+            } else {
+                30000000L // 默认血量
+            }
+
+            boss.currentHp = baseHp
+            boss.maxHp = baseHp
             boss.level = 1
             boss.lastResetTime = resetTime.format(formatter)
             boss.attackers.clear()
             boss.rewards.clear()
             saveWorldBoss()
-            PluginMain.logger.info("世界BOSS已重置（中午12点重置）")
+            PluginMain.logger.info("世界BOSS已重置（中午12点重置），血量设置为: $baseHp")
         }
     }
 
@@ -162,7 +171,10 @@ object WorldBossManager {
     }
 
     // 处理玩家攻击
-    fun handleAttack(playerId: Long, playerName: String, atk: Int, def: Int, luck: Int): String {
+    // WorldBoss.kt
+
+    // 修改 handleAttack 函数的参数类型
+    fun handleAttack(playerId: Long, playerName: String, atk: Long, def: Long, luck: Long): String {
         // 检查重置
         checkAndResetBoss(worldBoss)
 
@@ -177,12 +189,12 @@ object WorldBossManager {
             return "猪咪王已被击败，请等待下次刷新！"
         }
 
-
         // 获取玩家数据以读取转生次数
         val playerData = PlayerDataManager.getPlayerData(playerId)
         val rebirthCount = playerData?.rebirthCount ?: 0
-        val rebirthBonus = 1 + 0.01 * rebirthCount
-        // 计算伤害 (修改后的公式：加入转生次数加成)
+        val rebirthBonus = min(1 + 0.01 * rebirthCount,2.0)
+
+        // 计算伤害 - 注意这里参数已经是 Long 类型
         val randomFactor = Random.nextDouble(0.66, 1.33)
         val damage = ((atk + def) * luck * randomFactor * rebirthBonus).toLong()
 
@@ -209,8 +221,10 @@ object WorldBossManager {
         val damageMessage = StringBuilder()
         damageMessage.append("${playerName} 对猪咪王(LV.${worldBoss.level})造成了 $damage 点伤害！")
         // 添加转生次数信息
-        if (rebirthCount > 0) {
+        if (rebirthCount < 100) {
             damageMessage.append(" (转生${rebirthCount}次加成: +${rebirthCount}%)")
+        } else {
+            damageMessage.append(" (转生${rebirthCount}次加成: +100%)")
         }
 
         // 添加彩蛋消息
@@ -267,7 +281,7 @@ object WorldBossManager {
 
     // 分发奖励
     private suspend fun distributeRewards() {
-        delay(1000) // 延迟1秒确保所有攻击记录已保存
+        delay(100) // 延迟0.1秒确保所有攻击记录已保存
 
         val totalDamage = worldBoss.attackers.values.sum()
         val rewardBase = worldBoss.level * 2000
@@ -317,7 +331,7 @@ object WorldBossManager {
 
         // 提升BOSS等级和血量
         worldBoss.level++
-        worldBoss.maxHp = (worldBoss.maxHp * 1.3).toLong()
+        worldBoss.maxHp = (worldBoss.maxHp * 1.25).toLong()
         worldBoss.currentHp = worldBoss.maxHp
         worldBoss.attackers.clear()
         worldBoss.rewards.clear()
@@ -341,14 +355,22 @@ object WorldBossManager {
             todayNoon
         }
 
-        worldBoss.currentHp = 800000
-        worldBoss.maxHp = 800000
+        // 获取TopPlayer记录来计算血量
+        val topPlayer = TopPlayerManager.getRecord()
+        val baseHp = if (topPlayer != null) {
+            (topPlayer.finalATK + topPlayer.finalDEF) * topPlayer.finalLUCK * 10L
+        } else {
+            10000000L // 默认血量
+        }
+
+        worldBoss.currentHp = baseHp
+        worldBoss.maxHp = baseHp
         worldBoss.level = 1
         worldBoss.lastResetTime = resetTime.format(formatter)
         worldBoss.attackers.clear()
         worldBoss.rewards.clear()
         saveWorldBoss()
-        return "猪咪王已重置！下次重置时间：中午12点"
+        return "猪咪王已重置！血量: $baseHp，下次重置时间：中午12点"
     }
 
     // 添加获取玩家奖励信息的方法

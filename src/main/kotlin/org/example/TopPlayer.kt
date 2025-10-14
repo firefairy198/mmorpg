@@ -12,10 +12,10 @@ import kotlin.math.pow
 data class TopPlayerRecord(
     val playerId: Long,
     val playerName: String,
-    val totalScore: Int,
-    val finalATK: Int,
-    val finalDEF: Int,
-    val finalLUCK: Int,
+    val totalScore: Long,
+    val finalATK: Long,
+    val finalDEF: Long,
+    val finalLUCK: Long,
     val baseATK: Int,
     val baseDEF: Int,
     val baseLUCK: Int,
@@ -38,15 +38,19 @@ data class TopPlayerRecord(
     val relicDEF: Int,
     val relicLUCK: Int,
     val relicGrade: String?,
-    // 新增染色加成字段
     val relicAtkBonus: Int = 0,
     val relicDefBonus: Int = 0,
     val relicLuckBonus: Int = 0,
-    // 吞噬属性字段
     val devouredATK: Int = 0,
     val devouredDEF: Int = 0,
     val devouredLUCK: Int = 0,
-    val devouredPets: Map<String, Int> = emptyMap()
+    val devouredPets: Map<String, Int> = emptyMap(),
+    val necklaceName: String? = null,
+    val necklaceRarity: Int = 0,
+    val necklaceATK: Int = 0,
+    val necklaceDEF: Int = 0,
+    val necklaceLUCK: Int = 0,
+    val necklacePOW: Int = 0
 )
 
 // 全服楷模管理器
@@ -67,9 +71,9 @@ object TopPlayerManager {
     fun updateRecord(
         playerId: Long,
         playerName: String,
-        finalATK: Int,
-        finalDEF: Int,
-        finalLUCK: Int,
+        finalATK: Long,
+        finalDEF: Long,
+        finalLUCK: Long,
         baseATK: Int,
         baseDEF: Int,
         baseLUCK: Int,
@@ -100,7 +104,13 @@ object TopPlayerManager {
         devouredATK: Int = 0,
         devouredDEF: Int = 0,
         devouredLUCK: Int = 0,
-        devouredPets: Map<String, Int> = emptyMap()
+        devouredPets: Map<String, Int> = emptyMap(),
+        necklaceName: String? = null,
+        necklaceRarity: Int = 0,
+        necklaceATK: Int = 0,
+        necklaceDEF: Int = 0,
+        necklaceLUCK: Int = 0,
+        necklacePOW: Int = 0
     ) {
         val totalScore = finalATK + finalDEF + (finalLUCK * 5)
 
@@ -142,7 +152,13 @@ object TopPlayerManager {
                 // 传递染色加成属性
                 relicAtkBonus, relicDefBonus, relicLuckBonus,
                 // 传递吞噬属性
-                devouredATK, devouredDEF, devouredLUCK, devouredPets
+                devouredATK, devouredDEF, devouredLUCK, devouredPets,
+                necklaceName = necklaceName,
+                necklaceRarity = necklaceRarity,
+                necklaceATK = necklaceATK,
+                necklaceDEF = necklaceDEF,
+                necklaceLUCK = necklaceLUCK,
+                necklacePOW = necklacePOW
             )
 
             try {
@@ -228,6 +244,15 @@ object TopPlayerManager {
             builder.append("  ${record.relicName} (${record.relicGrade}级, ATK+${record.relicATK}(+${record.relicAtkBonus}), DEF+${record.relicDEF}(+${record.relicDefBonus}), LUCK+${record.relicLUCK}(+${record.relicLuckBonus}))\n")
         } else {
             builder.append("  无\n")
+        }
+
+        if (record.necklaceName != null) {
+            builder.append("\n📿 幸运项链:\n")
+            builder.append("  ${record.necklaceName} (罕见度${record.necklaceRarity})\n")
+            if (record.necklaceATK > 0) builder.append("  ATK+${record.necklaceATK}\n")
+            if (record.necklaceDEF > 0) builder.append("  DEF+${record.necklaceDEF}\n")
+            if (record.necklaceLUCK > 0) builder.append("  LUCK+${record.necklaceLUCK}\n")
+            if (record.necklacePOW > 0) builder.append("  POW+${record.necklacePOW}%\n")
         }
 
         return builder.toString()

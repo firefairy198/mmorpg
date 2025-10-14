@@ -129,12 +129,12 @@ object EliteFishManager {
     }
 
     // 处理玩家攻击精英鱼
-    fun handleAttack(playerId: Long, playerName: String, pondName: String, finalATK: Int, finalDEF: Int, finalLUCK: Int): String {
+    fun handleAttack(playerId: Long, playerName: String, pondName: String, finalATK: Long, finalDEF: Long, finalLUCK: Long): String {
         val eliteFish = getEliteFish(pondName) ?: return "您的鱼塘目前没有精英鱼！"
 
         // 检查玩家是否可以参与
         if (!canPlayerParticipate(playerId, pondName)) {
-            return "您加入鱼塘未满1天，无法参与精英鱼讨伐！"  // 更新提示信息
+            return "您加入鱼塘未满1天，无法参与精英鱼讨伐！"
         }
 
         // 检查攻击冷却
@@ -150,7 +150,7 @@ object EliteFishManager {
 
         // 计算伤害 - 添加0.67-1.33的RP值
         val randomFactor = Random.nextDouble(0.67, 1.33)
-        val baseDamage = (finalATK + finalDEF) * finalLUCK.toLong()
+        val baseDamage = (finalATK + finalDEF) * finalLUCK  // 现在都是Long类型
         val damage = (baseDamage * randomFactor).toLong()
 
         // 记录攻击

@@ -143,10 +143,6 @@ object DungeonStoryGenerator {
         "开启了嗜血"
     )
 
-    // 生成随机剧情事件
-    // 生成随机剧情事件
-    // 修改 generateEvents 函数，添加难度7的特殊事件概率
-    // 修改 generateEvents 函数，让难度7副本也考虑牧师效果
     fun generateEvents(team: Team, dungeon: Dungeon, positiveEventBonus: Double = 0.0, additionalEvents: Int = 0): List<DungeonEvent> {
         val events = mutableListOf<DungeonEvent>()
         val members = team.members.map { it.playerName }
@@ -155,15 +151,15 @@ object DungeonStoryGenerator {
         val totalEvents = 5 + additionalEvents
 
         // 检查是否为难度7副本
-        val isDifficulty7 = dungeon.id == 7
+        val isHighDifficulty = dungeon.id == 7 || dungeon.id == 8
 
         // 生成事件
         repeat(totalEvents) {
             val player = members.random()
 
             // 难度7副本：基础正面事件概率0%，但可以受到牧师加成
-            val basePositiveChance = if (isDifficulty7) {
-                0.0 // 难度7副本基础正面事件概率为0%
+            val basePositiveChance = if (isHighDifficulty) {
+                0.2 // 难度7和8副本基础正面事件概率为20%
             } else {
                 0.5
             }
@@ -211,7 +207,7 @@ object DungeonStoryGenerator {
             // 根据副本难度计算属性奖励
             // 基础奖励为2点，每增加40000难度增加1点奖励
             val baseBonus = 2
-            val difficultyBonus = dungeon.difficulty / 40000
+            val difficultyBonus = (dungeon.difficulty / 40000).toInt()
             val totalBonus = baseBonus + difficultyBonus
 
             DungeonEvent(playerName, "沐浴在神圣之光中", "↑",
@@ -254,15 +250,15 @@ object DungeonStoryGenerator {
         val members = team.members.map { it.playerName }
 
         // 检查是否为难度7隐藏副本（原始副本难度为7）
-        val isDifficulty7Bonus = (dungeon.id / 10) == 7
+        val isHighDifficultyBonus = (dungeon.id / 10) == 7 || (dungeon.id / 10) == 8
 
         // 添加3个特殊事件
         repeat(3) {
             val player = members.random()
 
             // 难度7隐藏副本：基础正面事件概率20%，但可以受到牧师加成
-            val basePositiveChance = if (isDifficulty7Bonus) {
-                0.2 // 难度7隐藏副本基础正面事件概率为20%
+            val basePositiveChance = if (isHighDifficultyBonus) {
+                0.2 // 难度7和8隐藏副本基础正面事件概率为20%
             } else {
                 0.2
             }

@@ -41,12 +41,10 @@ object PlayerDataManager {
                     )
                 }
 
-
                 // 兼容性处理：新增消息返回样式字段
                 if (playerData.messageBack == null) {
                     playerData.messageBack = null // 保持null，表示使用文字消息
                 }
-
 
                 if (playerData.pondJoinTime == null) {
                     playerData.pondJoinTime = "2025-09-01T00:00:00" // 默认时间
@@ -78,14 +76,20 @@ object PlayerDataManager {
                     playerData.devouredDEF = 0
                     playerData.devouredLUCK = 0
                 }
+                // 兼容性处理：幸运项链字段
+                if (playerData.luckyNecklace == null) {
+                    playerData.luckyNecklace = null
+                }
 
                 // 兼容性处理：初始化S型宠物变更券字段
                 if (playerData.sPetChangeTickets == 0) {
                     // 对于旧数据，初始化为0
                     playerData.sPetChangeTickets = 0
                 }
+                if (playerData.wangCoin == 0) {
+                    playerData.wangCoin = 0
+                }
 
-                // PlayerDataManager.kt (在兼容性处理部分添加)
                 // 兼容性处理：新增鱼饵字段
                 if (playerData.fishBaitCount == 0 && playerData.dailyFishBaitUsed == 0) {
                     playerData.fishBaitCount = 0
@@ -95,6 +99,13 @@ object PlayerDataManager {
                 // 兼容性处理：新增炸鱼器字段
                 if (playerData.fishBombCount == 0) {
                     playerData.fishBombCount = 0
+                }
+                if (playerData.advancedFishBombCount == 0) {
+                    playerData.advancedFishBombCount = 0
+                }
+                // 兼容性处理：新增神奇小药丸字段
+                if (playerData.miraclePillCount == 0) {
+                    playerData.miraclePillCount = 0
                 }
 
                 // 保存更新后的数据
