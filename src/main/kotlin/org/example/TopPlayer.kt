@@ -237,10 +237,6 @@ object TopPlayerManager {
         // 遗物信息
         builder.append("\n🔮 遗物:\n")
         if (record.relicName != null) {
-            val atkWithBonus = record.relicATK + record.relicAtkBonus
-            val defWithBonus = record.relicDEF + record.relicDefBonus
-            val luckWithBonus = record.relicLUCK + record.relicLuckBonus
-
             builder.append("  ${record.relicName} (${record.relicGrade}级, ATK+${record.relicATK}(+${record.relicAtkBonus}), DEF+${record.relicDEF}(+${record.relicDefBonus}), LUCK+${record.relicLUCK}(+${record.relicLuckBonus}))\n")
         } else {
             builder.append("  无\n")

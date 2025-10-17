@@ -284,7 +284,7 @@ object WorldBossManager {
         delay(100) // 延迟0.1秒确保所有攻击记录已保存
 
         val totalDamage = worldBoss.attackers.values.sum()
-        val rewardBase = worldBoss.level * 2000
+        val rewardBase = worldBoss.level * 1000
 
         // 计算总奖励池
         val totalRewardPool = rewardBase * 5
@@ -310,7 +310,7 @@ object WorldBossManager {
                 // 计算奖励：基于伤害比例 + 参与奖励
                 val damageRatio = damage.toDouble() / totalDamage
                 val damageReward = (totalRewardPool * damageRatio).toInt()
-                val participationReward = 888 // 参与奖励
+                val participationReward = 1288 // 参与奖励
                 val totalReward = damageReward + participationReward
 
                 playerData.gold += totalReward

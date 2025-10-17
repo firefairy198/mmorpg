@@ -10,7 +10,6 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import kotlin.random.Random
-import kotlin.math.min
 
 // 鱼类数据类
 @Serializable

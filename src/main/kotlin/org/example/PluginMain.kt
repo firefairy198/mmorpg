@@ -16,6 +16,7 @@ import net.mamoe.mirai.message.data.At
 import java.time.LocalDateTime
 import java.time.temporal.TemporalQueries.zoneId
 import kotlin.math.min
+import kotlin.math.max
 import kotlin.time.Duration
 import net.mamoe.mirai.contact.Group
 import net.mamoe.mirai.contact.User
@@ -206,6 +207,34 @@ object PluginMain : KotlinPlugin(
             power >= 1_000 -> "${"%.2f".format(power / 1_000)}K" // 千
             else -> "%.0f".format(power)
         }
+    }
+
+    // 优化副本显示
+    private fun getFilteredDungeonRecommendations(teamPower: Double): String {
+        val dungeons = DungeonManager.dungeons
+        val recommendations = mutableListOf<String>()
+        // 计算每个副本的成功率
+        val successRates = dungeons.map { dungeon ->
+            val successRate = (teamPower / dungeon.difficulty.toDouble()).coerceAtMost(1.0)
+            Pair(dungeon, successRate)
+        }
+        // 找到第一个成功率不是100%的副本
+        val firstNonPerfectIndex = successRates.indexOfFirst { it.second < 1.0 }
+        // 确定显示的起始索引：从第一个非100%副本的前一个开始（如果存在），至少显示两个
+        val startIndex = if (firstNonPerfectIndex != -1) {
+            max(0, firstNonPerfectIndex - 1)
+        } else {
+            // 如果所有副本都是100%，则只显示最后两个
+            max(0, dungeons.size - 2)
+        }
+        // 构建推荐信息
+        for (i in startIndex until dungeons.size) {
+            val (dungeon, successRate) = successRates[i]
+            val formattedRate = "%.2f".format(successRate * 100)
+            recommendations.add("副本${dungeon.id}: ${dungeon.name} - 难度${formatDifficulty(dungeon.difficulty)} - 成功率${formattedRate}%")
+        }
+
+        return recommendations.joinToString("\n")
     }
 
     private suspend fun sendTextPlayerInfo(
@@ -1485,10 +1514,7 @@ object PluginMain : KotlinPlugin(
                             val totalPowBonus = LuckyNecklaceManager.calculateTeamPowBonus(team)
                             val teamPower = totalATK * (0.5 + totalPowBonus) * totalLUCK
                             // 构建副本推荐信息
-                            val dungeonRecommendations = DungeonManager.dungeons.joinToString("\n") { dungeon ->
-                                val successRate = (teamPower / dungeon.difficulty.toDouble()).coerceAtMost(1.0)
-                                "副本${dungeon.id}: ${dungeon.name} - 难度${formatDifficulty(dungeon.difficulty)} - 成功率${"%.2f".format(successRate * 100)}%"
-                            }
+                            val dungeonRecommendations = getFilteredDungeonRecommendations(teamPower)
 
                             // 获取队伍宠物效果列表（包括虚拟队员的职业）
                             val petEffects = mutableListOf<String>()
@@ -1526,7 +1552,7 @@ object PluginMain : KotlinPlugin(
                             }
 
                             group.sendMessage("队伍已满！队伍总ATK: ${formatDifficulty(totalATK)}, 总LUCK: ${formatDifficulty(totalLUCK)}, 综合战力: ${formatTeamPower(teamPower)}\n" +
-                                "请使用\"/选择副本(/xzfb) [1-8]\"命令选择副本。\n" +  // 注意更新为1-8
+                                "请使用\"/选择副本(/xzfb) [1-8]\"命令选择副本。\n" +
                                 "$petEffectsStr\n" +
                                 "(概率未计算宠物效果)\n$dungeonRecommendations")
                         }
@@ -1661,10 +1687,7 @@ object PluginMain : KotlinPlugin(
                             val teamPower = totalATK * (0.5 + totalPowBonus) * totalLUCK
 
                             // 构建副本推荐信息
-                            val dungeonRecommendations = DungeonManager.dungeons.joinToString("\n") { dungeon ->
-                                val successRate = (teamPower / dungeon.difficulty.toDouble()).coerceAtMost(1.0)
-                                "副本${dungeon.id}: ${dungeon.name} - 难度${formatDifficulty(dungeon.difficulty)} - 成功率${"%.2f".format(successRate * 100)}%"
-                            }
+                            val dungeonRecommendations = getFilteredDungeonRecommendations(teamPower)
                             // 获取队伍宠物效果列表（包括虚拟队员的职业）
                             val petEffects = mutableListOf<String>()
                             updatedTeam.members.forEach { member ->
@@ -1704,7 +1727,7 @@ object PluginMain : KotlinPlugin(
                             val captainAt = At(captainId) // 创建@队长的消息组件
 
                             val message = captainAt +
-                                " 队伍已满！队伍总ATK: ${formatDifficulty(totalATK)}, 总LUCK: ${formatDifficulty(totalLUCK)}, 综合战力: ${formatTeamPower(teamPower)} \n" +
+                                " 队伍已满！队伍总ATK: ${formatDifficulty(totalATK)}, 总LUCK: ${formatDifficulty(totalLUCK)}, 综合战力: ${formatTeamPower(teamPower)}\n" +
                                 "请使用\"/选择副本(/xzfb) [1-8]\"命令选择副本。\n" +
                                 "$petEffectsStr\n" +
                                 "(概率未计算宠物效果)\n$dungeonRecommendations"
@@ -1813,7 +1836,7 @@ object PluginMain : KotlinPlugin(
                         return@subscribeAlways
                     }
 
-                    // 检查难度7副本的进入门槛
+                    // 检查副本的进入门槛
                     if (dungeon.id == 7) {
                         val captainData = PlayerDataManager.getPlayerData(team.captainId)
                         // 修改条件：检查是否持有MR或LR装备
@@ -1872,7 +1895,7 @@ object PluginMain : KotlinPlugin(
                         val memberNames = team.members.joinToString("，") { it.playerName }
                         group.sendMessage("$memberNames 开始攻略 ${dungeon.name}。")
 
-                        delay(4000)
+                        delay(3000)
 
                         // 生成剧情事件（应用宠物效果：增加正向事件概率和额外事件数量）
                         val events = DungeonStoryGenerator.generateEvents(
@@ -1899,7 +1922,7 @@ object PluginMain : KotlinPlugin(
 
                         // 发送普通事件消息
                         group.sendMessage(eventMessages.toString())
-                        delay(4000)
+                        delay(3000)
                         // 发送BOSS事件
                         group.sendMessage(events[events.size - 1].description)
 
@@ -1945,19 +1968,13 @@ object PluginMain : KotlinPlugin(
                         val rewardPerPerson = (actualReward + bonusExtraGold) / 4
 
                         // 发送结果
-                        delay(4000)
+                        delay(3000)
 
                         // 添加周末狂欢提示
                         val weekendBonusMessage = getWeekendBonusMessage()
 
                         if (success) {
                             group.sendMessage("经过一番苦战，队伍终于击败了BOSS！$weekendBonusMessage")
-
-                            // 如果是难度5副本且成功，记录到名人堂
-                            if (dungeon.id == 5) {
-                                val playerNames = team.members.map { it.playerName }
-                                HallOfFameManager.addRecord(playerNames, finalSuccessRate)
-                            }
 
                             // 构建奖励信息
                             val rewardInfo = StringBuilder()
@@ -1984,18 +2001,19 @@ object PluginMain : KotlinPlugin(
                                         noRewardPlayers.add(member.playerName)
                                     }
 
-                                    // 难度6副本汪币奖励（不受每日次数限制）
+                                    // 难度5副本汪币奖励
+                                    if (dungeon.id == 5) {
+                                        val wangCoinReward = if (Random.nextDouble() < 0.67) 0 else 1
+                                        memberData.wangCoin += wangCoinReward
+                                    }
                                     if (dungeon.id == 6) {
                                         val wangCoinReward = if (Random.nextDouble() < 0.67) 1 else 3
                                         memberData.wangCoin += wangCoinReward
                                     }
-
-                                    // 难度7副本汪币奖励（不受每日次数限制）
                                     if (dungeon.id == 7) {
                                         val wangCoinReward = if (Random.nextDouble() < 0.67) 3 else 9
                                         memberData.wangCoin += wangCoinReward
                                     }
-
                                     if (dungeon.id == 8) {
                                         val wangCoinReward = if (Random.nextDouble() < 0.67) 9 else 27
                                         memberData.wangCoin += wangCoinReward
@@ -2055,17 +2073,14 @@ object PluginMain : KotlinPlugin(
                                 delay(3000)
                                 group.sendMessage("🐶 每位队员获得一定数量的汪币奖励 🐶")
                             }
-
                             if (dungeon.id == 7) {
                                 delay(3000)
                                 group.sendMessage("🐶 每位队员获得一定数量的汪币奖励 🐶")
                             }
-
                             if (dungeon.id == 8) {
                                 delay(3000)
                                 group.sendMessage("🐶 每位队员获得一定数量的汪币奖励 🐶")
                             }
-
                             // 检查队伍中每个玩家的隐藏副本进入券数量
                             val teamTickets = mutableListOf<Int>()
                             var allHaveTicket = true
@@ -2121,7 +2136,7 @@ object PluginMain : KotlinPlugin(
                                 } else {
                                     group.sendMessage("🎉 One more thing！")
                                 }
-                                delay(4000)
+                                delay(3000)
 
                                 val originalDungeonId = dungeon.id
                                 // 创建奖励副本 (难度x2，奖励x2)
@@ -2267,11 +2282,6 @@ object PluginMain : KotlinPlugin(
                                         }
                                     }
 
-                                    if (bonusSuccess && originalDungeonId == 5) {
-                                        val playerNames = team.members.map { it.playerName }
-                                        HallOfGodsManager.addRecord(playerNames, bonusFinalSuccessRate)
-                                    }
-
                                 } else {
                                     group.sendMessage("😢 队伍未能在奖励副本中获胜，但仍获得了一些安慰奖励...")
 
@@ -2308,7 +2318,7 @@ object PluginMain : KotlinPlugin(
                             }
 
                         } else {
-                            group.sendMessage("经过一番苦战，菜鸡们最终还是不敌BOSS……$weekendBonusMessage")
+                            group.sendMessage("经过一番苦战，菜鸡们最终还是不敌BOSS…")
 
                             // 添加失败信息
                             val failInfo = StringBuilder()

@@ -3,14 +3,8 @@ package org.example.mmorpg
 
 object Shop {
     val equipmentList = listOf(
-        Equipment("独伊的白丝", atk = 5, def = 5, luck = 0, price = 10),
-        Equipment("讲黑大旗", atk = 20, def = 0, luck = 1, price = 500),
-        Equipment("库洛的外卖", atk = 0, def = 20, luck = 1, price = 500),
-        Equipment("幸运护符", atk = 5, def = 5, luck = 2, price = 2000),
-        Equipment("叶凡的Ball", atk = 6, def = 6, luck = 3, price = 5000),
-        Equipment("茯苓大片", atk = 16, def = 16, luck = 4, price = 11500),
-        Equipment("屠狗利刃", atk = 50, def = 25, luck = 5, price = 20000),
-        Equipment("无Ming大剑", atk = 66, def = 96, luck = 6, price = 26666),
+        Equipment("独伊的白丝", atk = 50, def = 50, luck = 5, price = 10),
+        Equipment("无Ming大剑", atk = 66, def = 96, luck = 6, price = 1666)
     )
 
     // 新增特殊装备（不在商店出售）
@@ -19,9 +13,9 @@ object Shop {
         Equipment("[SSR]天使权杖", atk = 138, def = 88, luck = 10, price = 4666),
         Equipment("[UR]魔之宝珠", atk = 198, def = 98, luck = 15, price = 6666),
         // 新增MR装备
-        Equipment("[MR]诸神之怒", atk = 278, def = 138, luck = 25, price = 8666),
+        Equipment("[MR]诸神之怒", atk = 278, def = 138, luck = 25, price = 6666),
         // 新增LR装备
-        Equipment("[LR]创世神杖", atk = 378, def = 198, luck = 38, price = 10666)
+        Equipment("[LR]创世神杖", atk = 378, def = 198, luck = 38, price = 6666)
     )
 
     // 获取特殊装备的方法
