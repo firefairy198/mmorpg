@@ -7,7 +7,7 @@ plugins {
 }
 
 group = "org.example.mmorpg"
-version = "0.1.0"
+version = "4.2.3"
 
 repositories {
     if (System.getenv("CI")?.toBoolean() != true) {

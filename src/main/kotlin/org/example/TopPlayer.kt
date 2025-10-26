@@ -112,7 +112,7 @@ object TopPlayerManager {
         necklaceLUCK: Int = 0,
         necklacePOW: Int = 0
     ) {
-        val totalScore = finalATK + finalDEF + (finalLUCK * 5)
+        val totalScore = (finalATK + finalDEF) * finalLUCK
 
         val currentRecord = getRecord()
 
@@ -244,7 +244,7 @@ object TopPlayerManager {
 
         if (record.necklaceName != null) {
             builder.append("\n📿 幸运项链:\n")
-            builder.append("  ${record.necklaceName} (罕见度${record.necklaceRarity})\n")
+            builder.append("  ${record.necklaceName}\n")
             if (record.necklaceATK > 0) builder.append("  ATK+${record.necklaceATK}\n")
             if (record.necklaceDEF > 0) builder.append("  DEF+${record.necklaceDEF}\n")
             if (record.necklaceLUCK > 0) builder.append("  LUCK+${record.necklaceLUCK}\n")

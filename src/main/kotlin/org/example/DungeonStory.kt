@@ -12,7 +12,10 @@ data class DungeonEvent(
     val successRateChange: Double = 0.0,
     val extraGold: Int = 0,
     val extraATK: Int = 0,
-    val extraDEF: Int = 0
+    val extraDEF: Int = 0,
+    val extraWangCoin: Int = 0,      // 新增：汪币奖励
+    val extraRebirthCount: Int = 0,  // 新增：转生次数奖励
+    val extraBaseLUCK: Int = 0       // 新增：基础LUCK奖励
 )
 
 // 添加副本剧情生成器
@@ -27,7 +30,7 @@ object DungeonStoryGenerator {
         "发现了隐藏的宝箱" to { playerName: String, dungeon: Dungeon ->
             DungeonEvent(playerName, "发现了隐藏的宝箱", "↑",
                 "[❤] $playerName 发现了隐藏的宝箱，获得了额外的喵币！",
-                extraGold = (dungeon.reward * 0.1).toInt())
+                extraGold = (dungeon.reward * 0.25).toInt())
         },
         "施展了治疗法术" to { playerName: String, dungeon: Dungeon ->
             DungeonEvent(playerName, "施展了治疗法术", "↑",
@@ -40,7 +43,7 @@ object DungeonStoryGenerator {
                 successRateChange = 0.004)
         },
         "激活了神秘BUFF" to { playerName: String, dungeon: Dungeon ->
-            val dungeonLevel = dungeon.id // 副本编号 1-5
+            val dungeonLevel = dungeon.id
             val squareBonus = dungeonLevel * dungeonLevel // 平方奖励
             DungeonEvent(playerName, "激活了神秘BUFF", "↑",
                 "[❤] $playerName 激活了神秘BUFF，所有成员BDBC！",
@@ -58,7 +61,7 @@ object DungeonStoryGenerator {
                 successRateChange = 0.005)
         },
         "变成了猪" to { playerName: String, dungeon: Dungeon ->
-            val dungeonLevel = dungeon.id // 副本编号-难度1-5
+            val dungeonLevel = dungeon.id
             DungeonEvent(playerName, "变成了猪", "↑",
                 "[❤] $playerName 遇到了白丝独伊，并把他变成了🐷！",
                 extraATK = dungeonLevel,
@@ -110,7 +113,7 @@ object DungeonStoryGenerator {
         },
         "开始吟唱爆裂魔法" to { playerName: String, dungeon: Dungeon ->
             DungeonEvent(playerName, "开始吟唱爆裂魔法", "↓",
-                "[☠☠] ‘比黑色更黑……Explosion!’$playerName 用魔法炸到了空气，然后瘫倒在地。",
+                "[☠☠] '比黑色更黑……Explosion!'$playerName 用魔法炸到了空气，然后瘫倒在地。",
                 successRateChange = -0.008)
         },
         "开始玩坎公骑冠剑" to { playerName: String, dungeon: Dungeon ->
@@ -150,16 +153,16 @@ object DungeonStoryGenerator {
         // 基础5个事件 + 宝藏猎手提供的额外事件
         val totalEvents = 5 + additionalEvents
 
-        // 检查是否为难度7副本
-        val isHighDifficulty = dungeon.id == 7 || dungeon.id == 8
+        // 检查是否为难度7-9副本
+        val isHighDifficulty = dungeon.id == 7 || dungeon.id == 8 || dungeon.id == 9
 
         // 生成事件
         repeat(totalEvents) {
             val player = members.random()
 
-            // 难度7副本：基础正面事件概率0%，但可以受到牧师加成
+            // 难度7-9副本：基础正面事件概率0%，但可以受到牧师加成
             val basePositiveChance = if (isHighDifficulty) {
-                0.2 // 难度7和8副本基础正面事件概率为20%
+                0.25
             } else {
                 0.5
             }
@@ -192,7 +195,8 @@ object DungeonStoryGenerator {
     }
 
     // 在 DungeonStoryGenerator 中添加奖励副本事件
-    private val bonusDungeonEvents = mapOf(
+    // 修改：将原有的奖励副本事件拆分为两组
+    private val bonusDungeonEventsForLow = mapOf(
         "发现了隐藏的传送门" to { playerName: String, dungeon: Dungeon ->
             DungeonEvent(playerName, "发现了隐藏的传送门", "↑",
                 "[✨] $playerName 发现了一个发光的传送门，似乎是一条近道！",
@@ -201,11 +205,10 @@ object DungeonStoryGenerator {
         "找到了古代宝库" to { playerName: String, dungeon: Dungeon ->
             DungeonEvent(playerName, "找到了古代宝库", "↑",
                 "[❤] $playerName 发现了一个装满喵币的古代宝库！",
-                extraGold = (dungeon.reward * 0.15).toInt())
+                extraGold = (dungeon.reward * 2.0).toInt())
         },
         "沐浴在神圣之光中" to { playerName: String, dungeon: Dungeon ->
-            // 根据副本难度计算属性奖励
-            // 基础奖励为2点，每增加40000难度增加1点奖励
+            // 基础奖励为2点，每增加40000L难度增加1点奖励
             val baseBonus = 2
             val difficultyBonus = (dungeon.difficulty / 40000).toInt()
             val totalBonus = baseBonus + difficultyBonus
@@ -216,6 +219,47 @@ object DungeonStoryGenerator {
                 extraDEF = totalBonus)
         }
     )
+
+    // 新增：难7-9的隐藏副本事件
+    private val bonusDungeonEventsForHigh = mapOf(
+        "找到了远古宝库" to { playerName: String, dungeon: Dungeon ->
+            // 根据副本难度计算汪币奖励
+            val wangCoinReward = when (dungeon.id / 10) { // 注意：奖励副本的id是原始副本id的10倍
+                7 -> 9   // 难度7隐藏副本
+                8 -> 27  // 难度8隐藏副本
+                9 -> 81  // 难度9隐藏副本
+                else -> 0
+            }
+
+            DungeonEvent(playerName, "找到了远古宝库", "↑",
+                "[❤] $playerName 发现了一个装满汪币的远古宝库！",
+                extraWangCoin = wangCoinReward)
+        },
+        "沐浴在神界之光中" to { playerName: String, dungeon: Dungeon ->
+            // 根据副本难度计算属性奖励 (dungeon.difficulty / 80000)
+            val attributeBonus = (dungeon.difficulty / 80000).toInt()
+
+            DungeonEvent(playerName, "沐浴在神界之光中", "↑",
+                "[❤] $playerName 沐浴在神界之光中，感觉力量大幅增强了！",
+                extraATK = attributeBonus,
+                extraDEF = attributeBonus)
+        },
+        "获得了神之传承" to { playerName: String, dungeon: Dungeon ->
+            // 根据副本难度计算转生次数和基础LUCK奖励
+            val (rebirthReward, luckReward) = when (dungeon.id / 10) {
+                7 -> Pair(15, 15)      // 难度7：15次转生，15点基础LUCK
+                8 -> Pair(300, 300)    // 难度8：300次转生，300点基础LUCK
+                9 -> Pair(15000, 15000) // 难度9：15000次转生，15000点基础LUCK
+                else -> Pair(0, 0)
+            }
+
+            DungeonEvent(playerName, "获得了神之传承", "↑",
+                "[❤❤] $playerName 获得了神之传承，对轮回与力量有了全新的理解！",
+                extraRebirthCount = rebirthReward,
+                extraBaseLUCK = luckReward)
+        }
+    )
+
     private val bonusDungeonNegativeEvents = mapOf(
         "触发了古老陷阱" to { playerName: String, dungeon: Dungeon ->
             DungeonEvent(playerName, "触发了古老陷阱", "↓",
@@ -244,13 +288,20 @@ object DungeonStoryGenerator {
         }
     )
 
-    // 修改 generateBonusDungeonEvents 函数，添加难度7隐藏副本的特殊事件概率
+    // 修改 generateBonusDungeonEvents 函数，添加难度7-9隐藏副本的特殊事件概率
     fun generateBonusDungeonEvents(team: Team, dungeon: Dungeon, positiveEventBonus: Double = 0.0): List<DungeonEvent> {
         val events = mutableListOf<DungeonEvent>()
         val members = team.members.map { it.playerName }
 
-        // 检查是否为难度7隐藏副本（原始副本难度为7）
-        val isHighDifficultyBonus = (dungeon.id / 10) == 7 || (dungeon.id / 10) == 8
+        // 检查是否为难度7-9隐藏副本
+        val isHighDifficultyBonus = (dungeon.id / 10) == 7 || (dungeon.id / 10) == 8 || (dungeon.id / 10) == 9
+
+        // 修改：根据难度选择不同的事件集合
+        val eventPool = if (isHighDifficultyBonus) {
+            bonusDungeonEventsForHigh
+        } else {
+            bonusDungeonEventsForLow
+        }
 
         // 添加3个特殊事件
         repeat(3) {
@@ -258,7 +309,7 @@ object DungeonStoryGenerator {
 
             // 难度7隐藏副本：基础正面事件概率20%，但可以受到牧师加成
             val basePositiveChance = if (isHighDifficultyBonus) {
-                0.2 // 难度7和8隐藏副本基础正面事件概率为20%
+                0.0
             } else {
                 0.2
             }
@@ -269,7 +320,8 @@ object DungeonStoryGenerator {
             val isPositive = Random.nextDouble() < positiveChance
 
             if (isPositive) {
-                val (action, eventGenerator) = bonusDungeonEvents.entries.random()
+                // 修改：使用对应难度的事件池
+                val (action, eventGenerator) = eventPool.entries.random()
                 val event = eventGenerator(player, dungeon)
                 events.add(event)
             } else {

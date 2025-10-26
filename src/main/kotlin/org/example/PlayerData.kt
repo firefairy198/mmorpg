@@ -53,7 +53,8 @@ data class PlayerData(
     var yellowPenCount: Int = 0,
     var blackPenCount: Int = 0,
     // 新增：神奇小药丸数量
-    var miraclePillCount: Int = 0
+    var miraclePillCount: Int = 0,
+    var hasClearedGame: Boolean = false
 )
 
 // 新增宠物数据类

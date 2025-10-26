@@ -130,7 +130,7 @@ object WorldBossManager {
             // 获取TopPlayer记录来计算血量
             val topPlayer = TopPlayerManager.getRecord()
             val baseHp = if (topPlayer != null) {
-                (topPlayer.finalATK + topPlayer.finalDEF) * topPlayer.finalLUCK * 10L
+                (topPlayer.finalATK + topPlayer.finalDEF) * topPlayer.finalLUCK * 13L
             } else {
                 30000000L // 默认血量
             }
@@ -171,9 +171,6 @@ object WorldBossManager {
     }
 
     // 处理玩家攻击
-    // WorldBoss.kt
-
-    // 修改 handleAttack 函数的参数类型
     fun handleAttack(playerId: Long, playerName: String, atk: Long, def: Long, luck: Long): String {
         // 检查重置
         checkAndResetBoss(worldBoss)
@@ -186,7 +183,7 @@ object WorldBossManager {
 
         // 检查BOSS是否已被击败
         if (worldBoss.currentHp <= 0) {
-            return "猪咪王已被击败，请等待下次刷新！"
+            return "猪咪王已被击败，新的猪咪王已刷新！"
         }
 
         // 获取玩家数据以读取转生次数
@@ -331,7 +328,7 @@ object WorldBossManager {
 
         // 提升BOSS等级和血量
         worldBoss.level++
-        worldBoss.maxHp = (worldBoss.maxHp * 1.25).toLong()
+        worldBoss.maxHp = (worldBoss.maxHp * 1.2).toLong()
         worldBoss.currentHp = worldBoss.maxHp
         worldBoss.attackers.clear()
         worldBoss.rewards.clear()

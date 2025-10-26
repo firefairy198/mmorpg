@@ -10,12 +10,11 @@ object Shop {
     // 新增特殊装备（不在商店出售）
     val specialEquipmentList = listOf(
         Equipment("[SR]王国圣剑", atk = 98, def = 68, luck = 8, price = 3666),
-        Equipment("[SSR]天使权杖", atk = 138, def = 88, luck = 10, price = 4666),
-        Equipment("[UR]魔之宝珠", atk = 198, def = 98, luck = 15, price = 6666),
-        // 新增MR装备
-        Equipment("[MR]诸神之怒", atk = 278, def = 138, luck = 25, price = 6666),
-        // 新增LR装备
-        Equipment("[LR]创世神杖", atk = 378, def = 198, luck = 38, price = 6666)
+        Equipment("[SSR]天使权杖", atk = 138, def = 88, luck = 10, price = 3666),
+        Equipment("[UR]魔之宝珠", atk = 198, def = 98, luck = 15, price = 3666),
+        Equipment("[MR]诸神之怒", atk = 278, def = 138, luck = 25, price = 3666),
+        Equipment("[LR]创世神杖", atk = 6480, def = 5180, luck = 328, price = 3666),
+        Equipment("[XR]诛仙剑", atk = 64800, def = 51800, luck = 6480, price = 3666)
     )
 
     // 获取特殊装备的方法
@@ -70,7 +69,9 @@ object WangCoinShop {
         WangCoinItem("蓝彩笔", price = 1, description = "随机重置遗物DEF染色属性"),
         WangCoinItem("黄彩笔", price = 10, description = "随机重置遗物LUCK染色属性"),
         WangCoinItem("黑彩笔", price = 13, description = "固定增加遗物染色属性"),
-        WangCoinItem("5000喵币", price = 10, description = "兑换5000喵币")
+        WangCoinItem("5000喵币", price = 10, description = "兑换5000喵币"),
+        WangCoinItem("50000喵币", price = 100, description = "兑换50000喵币"),
+        WangCoinItem("500000喵币", price = 1000, description = "兑换500000喵币")
     )
 
     // 汪币商品数据类

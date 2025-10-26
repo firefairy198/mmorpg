@@ -119,6 +119,26 @@ object LuckyNecklaceManager {
         return LuckyNecklace(rarity, attributes)
     }
 
+    // 生成高级随机项链（罕见度4-6）
+    private fun generateAdvancedNecklace(): LuckyNecklace {
+        val rarityRoll = Random.nextDouble(0.0, 1.0)
+        val rarity = when {
+            rarityRoll <= 0.15 -> 6  // 15%
+            rarityRoll <= 0.75 -> 5  // 60%
+            else -> 4               // 25%
+        }
+
+        // 根据罕见度生成对应数量的属性
+        val attributeCount = rarity
+        val attributes = mutableListOf<NecklaceAttribute>()
+
+        repeat(attributeCount) {
+            attributes.add(generateRandomAttribute())
+        }
+
+        return LuckyNecklace(rarity, attributes)
+    }
+
     // 检查玩家是否可以开启幸运项链
     fun canActivateNecklace(playerData: PlayerData): Pair<Boolean, String> {
         if (playerData.luckyNecklace != null) {
@@ -182,10 +202,29 @@ object LuckyNecklaceManager {
         return Pair(true, "")
     }
 
+    // 检查玩家是否可以高级重铸幸运项链
+    fun canAdvancedReforgeNecklace(playerData: PlayerData): Pair<Boolean, String> {
+        if (playerData.luckyNecklace == null) {
+            return Pair(false, "您尚未开启幸运项链功能，无法进行高级重铸！")
+        }
+
+        if (playerData.wangCoin < 200) {
+            return Pair(false, "高级重置幸运项链需要200汪币，您当前只有${playerData.wangCoin}汪币")
+        }
+
+        return Pair(true, "")
+    }
+
     // 执行重铸（不立即应用，返回新项链用于确认）
     fun reforgeNecklace(playerData: PlayerData): LuckyNecklace {
         // 生成新的随机项链
         return generateRandomNecklace()
+    }
+
+    // 执行高级重铸（不立即应用，返回新项链用于确认）
+    fun advancedReforgeNecklace(playerData: PlayerData): LuckyNecklace {
+        // 生成高级随机项链（罕见度4-6）
+        return generateAdvancedNecklace()
     }
 
     // 应用重铸（确认后调用）
